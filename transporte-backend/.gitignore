@@ -1,0 +1,36 @@
+# ==== Python / Django ====
+*.pyc
+__pycache__/
+*.log
+*.pot
+*.mo
+*.coverage
+htmlcov/
+.env
+db.sqlite3   # solo si usas SQLite en desarrollo
+
+# ==== Entorno virtual ====
+venv/
+.venv/
+env/
+
+
+# ==== Node / Vue ====
+node_modules/
+dist/
+build/
+*.lock
+
+# ==== PostgreSQL ====
+*.sql
+*.dump
+
+# ==== IDEs y sistema ====
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ==== Otros ====
+coverage/
