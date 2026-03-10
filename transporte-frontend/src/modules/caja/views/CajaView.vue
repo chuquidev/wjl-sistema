@@ -21,9 +21,9 @@
         </div>
 
         <!-- Tabs -->
-        <div class="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+        <div class="flex gap-1 p-1 bg-gray-100 rounded-xl overflow-x-auto">
             <button v-for="tab in tabsVisibles" :key="tab.clave" @click="tabActivo = tab.clave" :class="[
-                'px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150',
+                'px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 whitespace-nowrap flex-shrink-0',
                 tabActivo === tab.clave
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
@@ -437,7 +437,7 @@
         <div v-if="tabActivo === 'consolidado'" class="space-y-5">
             <div class="card">
                 <div class="card-body">
-                    <div class="flex flex-wrap items-end gap-3 min-w-0">
+                    <div class="flex flex-wrap items-end gap-4">
                         <div>
                             <label class="form-label">Desde</label>
                             <input v-model="filtroConsolidado.fecha_desde" type="date" class="form-input w-44" />
