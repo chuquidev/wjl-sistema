@@ -2,12 +2,12 @@
     <div class="space-y-6">
 
         <!-- Encabezado -->
-        <div class="page-header">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h1 class="page-title">Reportes</h1>
                 <p class="page-subtitle">Dashboard general y análisis del negocio</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
                 <button @click="exportar('excel')" :disabled="exportando" class="btn-secondary">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -34,8 +34,8 @@
         </div>
 
         <!-- Filtros de período -->
-        <div class="flex flex-wrap items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
-            <div class="flex gap-1 p-1 bg-gray-100 rounded-xl">
+        <div class="flex flex-col gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm sm:flex-row sm:flex-wrap sm:items-center">
+            <div class="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
                 <button v-for="p in periodos" :key="p.clave" @click="selectPeriodo(p.clave)"
                     :class="[
                         'px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
@@ -44,11 +44,15 @@
                     {{ p.etiqueta }}
                 </button>
             </div>
-            <div class="flex items-center gap-2 text-sm text-gray-500">
-                <span>Desde</span>
-                <input v-model="fechaDesde" type="date" class="form-input py-1.5 text-sm w-38" @change="cargarDatos" />
-                <span>hasta</span>
-                <input v-model="fechaHasta" type="date" class="form-input py-1.5 text-sm w-38" @change="cargarDatos" />
+            <div class="flex flex-col gap-2 text-sm text-gray-500 sm:flex-row sm:items-center">
+                <div class="flex items-center gap-2">
+                    <span class="flex-shrink-0">Desde</span>
+                    <input v-model="fechaDesde" type="date" class="form-input py-1.5 text-sm w-full sm:w-36" @change="cargarDatos" />
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="flex-shrink-0">hasta</span>
+                    <input v-model="fechaHasta" type="date" class="form-input py-1.5 text-sm w-full sm:w-36" @change="cargarDatos" />
+                </div>
             </div>
         </div>
 
@@ -338,7 +342,6 @@
                                 ) }}
                             </td>
                         </tr>
-                        <!-- Total -->
                         <tr v-if="datos.ventas_diarias?.length" class="bg-gray-50 font-black">
                             <td class="text-gray-900">TOTAL</td>
                             <td class="text-right text-blue-600">{{ totales.pasajes }}</td>
@@ -360,7 +363,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { reportesService } from '../services/reportes.service'
 
-// ── Estado ────────────────────────────────────────────────
 const cargando   = ref(false)
 const exportando = ref(false)
 const datos      = ref({})
@@ -377,7 +379,6 @@ const periodos = [
     { clave: 'anio',   etiqueta: 'Año' },
 ]
 
-// ── Chart config ──────────────────────────────────────────
 const chartW   = 400
 const chartH   = 160
 const paddingL = 10
@@ -385,7 +386,6 @@ const paddingR = 10
 const paddingT = 10
 const paddingB = 20
 
-// ── Helpers ───────────────────────────────────────────────
 function formatearMonto(val) {
     return (parseFloat(val) || 0).toLocaleString('es-PE', {
         minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -409,20 +409,16 @@ function etiquetaPago(mp) {
 function colorBarraPago(mp) {
     return { cash: 'bg-emerald-500', yape: 'bg-purple-500', plin: 'bg-blue-500', card: 'bg-orange-500' }[mp] || 'bg-gray-400'
 }
-
-// helper para sumar total de una fila del día
 function totalDia(d) {
     return (parseFloat(d.ingresos_pasajes) || 0)
         + (parseFloat(d.ingresos_paquetes) || 0)
         + (parseFloat(d.ingresos_encomiendas) || 0)
 }
 
-// ── Período ───────────────────────────────────────────────
 function selectPeriodo(p) {
     periodo.value = p
     const hoyDate = new Date()
     fechaHasta.value = hoyDate.toISOString().slice(0, 10)
-
     if (p === 'hoy') {
         fechaDesde.value = fechaHasta.value
     } else if (p === 'semana') {
@@ -437,7 +433,6 @@ function selectPeriodo(p) {
     cargarDatos()
 }
 
-// ── KPIs ──────────────────────────────────────────────────
 const kpis = computed(() => [
     {
         clave:    'ventas',
@@ -477,13 +472,12 @@ const kpis = computed(() => [
     },
 ])
 
-// ── Totales tabla ─────────────────────────────────────────
 const totales = computed(() => {
     const filas = datos.value.ventas_diarias || []
     return filas.reduce((acc, d) => {
         acc.pasajes             += d.pasajes || 0
         acc.ingresosPasajes     += parseFloat(d.ingresos_pasajes || 0)
-        acc.ingresosPaquetes    += parseFloat(d.ingresos_paquetes || 0)  // ← nuevo
+        acc.ingresosPaquetes    += parseFloat(d.ingresos_paquetes || 0)
         acc.encomiendas         += d.encomiendas || 0
         acc.ingresosEncomiendas += parseFloat(d.ingresos_encomiendas || 0)
         acc.total               += totalDia(d)
@@ -491,7 +485,6 @@ const totales = computed(() => {
     }, { pasajes: 0, ingresosPasajes: 0, ingresosPaquetes: 0, encomiendas: 0, ingresosEncomiendas: 0, total: 0 })
 })
 
-// ── Chart barras ventas ───────────────────────────────────
 const guias = computed(() => {
     const filas = datos.value.ventas_diarias || []
     if (!filas.length) return []
@@ -503,13 +496,11 @@ const guias = computed(() => {
 const barsVentas = computed(() => {
     const filas = datos.value.ventas_diarias || []
     if (!filas.length) return []
-    // ← usa totalDia que incluye paquetes
     const maxVal = Math.max(...filas.map(d => totalDia(d))) || 1
     const innerW = chartW - paddingL - paddingR
     const innerH = chartH - paddingT - paddingB
     const barW   = Math.max(4, (innerW / filas.length) * 0.6)
     const gap    = innerW / filas.length
-
     return filas.map((d, i) => {
         const val   = totalDia(d)
         const h     = Math.max(2, (val / maxVal) * innerH)
@@ -520,7 +511,6 @@ const barsVentas = computed(() => {
     })
 })
 
-// ── Donut viajes ──────────────────────────────────────────
 const estadosViaje = [
     { clave: 'programado', etiqueta: 'Programado', color: '#9ca3af' },
     { clave: 'en_curso',   etiqueta: 'En curso',   color: '#10b981' },
@@ -547,7 +537,6 @@ const donutSegments = computed(() => {
     })
 })
 
-// ── Encomiendas stats ─────────────────────────────────────
 const encomiendаsStats = [
     { clave: 'total',       etiqueta: 'Total',        bg: 'bg-gray-50',    color: 'text-gray-900' },
     { clave: 'en_transito', etiqueta: 'En tránsito',  bg: 'bg-blue-50',    color: 'text-blue-600' },
@@ -555,7 +544,6 @@ const encomiendаsStats = [
     { clave: 'ingresos',    etiqueta: 'Ingresos S/.', bg: 'bg-orange-50',  color: 'text-orange-600' },
 ]
 
-// ── Cargar datos ──────────────────────────────────────────
 async function cargarDatos() {
     cargando.value = true
     try {
@@ -569,7 +557,6 @@ async function cargarDatos() {
     }
 }
 
-// ── Exportar ──────────────────────────────────────────────
 async function exportar(tipo) {
     exportando.value = true
     try {
@@ -577,7 +564,6 @@ async function exportar(tipo) {
         const { data }  = tipo === 'pdf'
             ? await reportesService.exportarPDF(params)
             : await reportesService.exportarExcel(params)
-
         const ext  = tipo === 'pdf' ? 'pdf' : 'xlsx'
         const mime = tipo === 'pdf'
             ? 'application/pdf'

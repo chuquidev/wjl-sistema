@@ -17,14 +17,12 @@
 
         <!-- Tabs -->
         <div class="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-            <button v-for="tab in tabs" :key="tab.clave"
-                @click="tabActivo = tab.clave"
-                :class="[
-                    'px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150',
-                    tabActivo === tab.clave
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                ]">
+            <button v-for="tab in tabs" :key="tab.clave" @click="tabActivo = tab.clave" :class="[
+                'px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150',
+                tabActivo === tab.clave
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+            ]">
                 {{ tab.etiqueta }}
                 <span :class="[
                     'ml-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-black',
@@ -37,13 +35,13 @@
 
         <!-- Buscador -->
         <div class="relative w-full max-w-xs">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input v-model="busqueda" type="text" :placeholder="`Buscar ${etiquetaTab.toLowerCase()}...`"
-                class="form-input pl-9" />
+                class="form-input w-full" style="padding-left: 2.25rem" />
         </div>
 
         <!-- Tabla Sucursales -->
@@ -66,8 +64,10 @@
                             <td colspan="7">
                                 <div class="flex justify-center py-10">
                                     <svg class="w-6 h-6 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4" />
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                     </svg>
                                 </div>
                             </td>
@@ -132,8 +132,10 @@
                             <td colspan="4">
                                 <div class="flex justify-center py-10">
                                     <svg class="w-6 h-6 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4" />
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                     </svg>
                                 </div>
                             </td>
@@ -195,8 +197,10 @@
                             <td colspan="7">
                                 <div class="flex justify-center py-10">
                                     <svg class="w-6 h-6 text-gray-300 animate-spin" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4" />
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                     </svg>
                                 </div>
                             </td>
@@ -272,12 +276,14 @@
                     </div>
                     <div>
                         <label class="form-label">Teléfono</label>
-                        <input v-model="formulario.telefono" type="text" class="form-input" placeholder="Ej: 074-123456" />
+                        <input v-model="formulario.telefono" type="text" class="form-input"
+                            placeholder="Ej: 074-123456" />
                     </div>
                     <div class="flex items-center gap-3">
                         <input v-model="formulario.es_principal" type="checkbox" id="es_principal"
                             class="w-4 h-4 rounded text-blue-600" />
-                        <label for="es_principal" class="text-sm text-gray-700 font-medium">Es sucursal principal</label>
+                        <label for="es_principal" class="text-sm text-gray-700 font-medium">Es sucursal
+                            principal</label>
                     </div>
                 </template>
 
@@ -324,9 +330,8 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="form-label">Precio base (S/.) <span class="text-red-500">*</span></label>
-                            <input v-model="formulario.precio_base" type="number" step="0.50" min="0"
-                                class="form-input" :class="{ 'form-input-error': errores.precio_base }"
-                                placeholder="0.00" />
+                            <input v-model="formulario.precio_base" type="number" step="0.50" min="0" class="form-input"
+                                :class="{ 'form-input-error': errores.precio_base }" placeholder="0.00" />
                             <p v-if="errores.precio_base" class="form-error">{{ errores.precio_base }}</p>
                         </div>
                         <div>
@@ -339,8 +344,8 @@
                     </div>
                     <div>
                         <label class="form-label">Distancia (km)</label>
-                        <input v-model="formulario.distancia_km" type="number" step="0.1" min="0"
-                            class="form-input" placeholder="Opcional" />
+                        <input v-model="formulario.distancia_km" type="number" step="0.1" min="0" class="form-input"
+                            placeholder="Opcional" />
                         <p class="form-hint">Campo opcional</p>
                     </div>
                 </template>
@@ -348,7 +353,8 @@
                 <!-- Alerta error del servidor -->
                 <div v-if="errorServidor"
                     class="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200">
-                    <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -362,8 +368,8 @@
                 </button>
                 <button @click="guardar" :disabled="guardando" class="btn-primary">
                     <svg v-if="guardando" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
                     {{ guardando ? 'Guardando...' : (modoEdicion ? 'Actualizar' : 'Guardar') }}
                 </button>
@@ -396,25 +402,25 @@
 <script setup>
 import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useUbicacionesStore } from '../stores/ubicaciones.store'
-import { ubicacionesService }  from '../services/ubicaciones.service'
+import { ubicacionesService } from '../services/ubicaciones.service'
 
 import AppModal from '@/components/common/AppModal.vue'
 
 
-const store      = useUbicacionesStore()
-const tabActivo  = ref('sucursales')
-const busqueda   = ref('')
+const store = useUbicacionesStore()
+const tabActivo = ref('sucursales')
+const busqueda = ref('')
 const modalAbierto = ref(false)
 const modalEliminar = ref(false)
-const modoEdicion   = ref(false)
-const guardando     = ref(false)
+const modoEdicion = ref(false)
+const guardando = ref(false)
 const errorServidor = ref('')
 const itemSeleccionado = ref(null)
 
 const tabs = [
     { clave: 'sucursales', etiqueta: 'Sucursales' },
-    { clave: 'ciudades',   etiqueta: 'Ciudades' },
-    { clave: 'rutas',      etiqueta: 'Rutas' },
+    { clave: 'ciudades', etiqueta: 'Ciudades' },
+    { clave: 'rutas', etiqueta: 'Rutas' },
 ]
 
 // ── Formulario dinámico ──────────────────────────────────
@@ -441,8 +447,8 @@ const tituloModal = computed(() =>
 
 const conteoTab = (clave) => ({
     sucursales: store.sucursales.length,
-    ciudades:   store.ciudades.length,
-    rutas:      store.rutas.length,
+    ciudades: store.ciudades.length,
+    rutas: store.rutas.length,
 }[clave] || 0)
 
 const sucursalesFiltradas = computed(() =>
@@ -474,7 +480,7 @@ watch(tabActivo, (nuevo) => {
 
 function cargarTab(tab) {
     if (tab === 'sucursales') store.cargarSucursales()
-    if (tab === 'ciudades')   store.cargarCiudades()
+    if (tab === 'ciudades') store.cargarCiudades()
     if (tab === 'rutas') {
         store.cargarRutas()
         store.cargarCiudades() // necesario para el select
@@ -497,7 +503,7 @@ function abrirModalCrear() {
 }
 
 function abrirModalEditar(item) {
-    modoEdicion.value      = true
+    modoEdicion.value = true
     itemSeleccionado.value = item
     limpiarFormulario()
 
@@ -524,7 +530,7 @@ function abrirModalEditar(item) {
 
 function confirmarEliminar(item) {
     itemSeleccionado.value = item
-    modalEliminar.value    = true
+    modalEliminar.value = true
 }
 
 // ── Validaciones ─────────────────────────────────────────
@@ -533,19 +539,19 @@ function validar() {
     Object.keys(errores).forEach(k => errores[k] = '')
 
     if (tabActivo.value === 'sucursales') {
-        if (!formulario.nombre)    { errores.nombre    = 'Obligatorio'; valido = false }
-        if (!formulario.ciudad)    { errores.ciudad    = 'Obligatorio'; valido = false }
+        if (!formulario.nombre) { errores.nombre = 'Obligatorio'; valido = false }
+        if (!formulario.ciudad) { errores.ciudad = 'Obligatorio'; valido = false }
         if (!formulario.direccion) { errores.direccion = 'Obligatorio'; valido = false }
     }
     if (tabActivo.value === 'ciudades') {
-        if (!formulario.nombre)       { errores.nombre       = 'Obligatorio'; valido = false }
+        if (!formulario.nombre) { errores.nombre = 'Obligatorio'; valido = false }
         if (!formulario.departamento) { errores.departamento = 'Obligatorio'; valido = false }
     }
     if (tabActivo.value === 'rutas') {
-        if (!formulario.origen)        { errores.origen        = 'Obligatorio'; valido = false }
-        if (!formulario.destino)       { errores.destino       = 'Obligatorio'; valido = false }
-        if (!formulario.precio_base)   { errores.precio_base   = 'Obligatorio'; valido = false }
-        if (!formulario.duracion_horas){ errores.duracion_horas = 'Obligatorio'; valido = false }
+        if (!formulario.origen) { errores.origen = 'Obligatorio'; valido = false }
+        if (!formulario.destino) { errores.destino = 'Obligatorio'; valido = false }
+        if (!formulario.precio_base) { errores.precio_base = 'Obligatorio'; valido = false }
+        if (!formulario.duracion_horas) { errores.duracion_horas = 'Obligatorio'; valido = false }
         if (formulario.origen === formulario.destino && formulario.origen) {
             errores.destino = 'El destino no puede ser igual al origen'
             valido = false
@@ -559,7 +565,7 @@ function validar() {
 async function guardar() {
     if (!validar()) return
 
-    guardando.value     = true
+    guardando.value = true
     errorServidor.value = ''
 
     try {
@@ -568,24 +574,24 @@ async function guardar() {
 
         if (tabActivo.value === 'sucursales') {
             payload = {
-                nombre:       formulario.nombre,
-                ciudad:       formulario.ciudad,
-                direccion:    formulario.direccion,
-                telefono:     formulario.telefono,
+                nombre: formulario.nombre,
+                ciudad: formulario.ciudad,
+                direccion: formulario.direccion,
+                telefono: formulario.telefono,
                 es_principal: formulario.es_principal,
             }
         } else if (tabActivo.value === 'ciudades') {
             payload = {
-                nombre:       formulario.nombre,
+                nombre: formulario.nombre,
                 departamento: formulario.departamento,
             }
         } else if (tabActivo.value === 'rutas') {
             payload = {
-                origen:         formulario.origen,
-                destino:        formulario.destino,
-                precio_base:    formulario.precio_base,
+                origen: formulario.origen,
+                destino: formulario.destino,
+                precio_base: formulario.precio_base,
                 duracion_horas: formulario.duracion_horas,
-                distancia_km:   formulario.distancia_km || null,
+                distancia_km: formulario.distancia_km || null,
             }
         }
 

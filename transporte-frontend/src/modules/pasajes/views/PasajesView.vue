@@ -1067,6 +1067,7 @@ async function confirmarVenta() {
                 pasajero_nombre: `${form.nombres} ${form.apellidos}`.trim(),
                 pasajero_dni: form.dni,
                 pasajero_telefono: form.telefono || '',
+                paquetes,
             })
         }
 

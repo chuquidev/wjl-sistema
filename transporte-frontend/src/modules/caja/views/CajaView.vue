@@ -437,7 +437,7 @@
         <div v-if="tabActivo === 'consolidado'" class="space-y-5">
             <div class="card">
                 <div class="card-body">
-                    <div class="flex flex-wrap items-end gap-4">
+                    <div class="flex flex-wrap items-end gap-3 min-w-0">
                         <div>
                             <label class="form-label">Desde</label>
                             <input v-model="filtroConsolidado.fecha_desde" type="date" class="form-input w-44" />

@@ -77,3 +77,68 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+
+/* ── Responsive fix: evitar scroll horizontal ── */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+#app {
+  overflow-x: hidden;
+  max-width: 100%;
+  padding: 1rem;
+  text-align: left;
+}
+
+/* Todas las tablas se contienen en su wrapper */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Inputs de fecha no se expanden más allá del contenedor */
+input[type="date"] {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Grids que pueden desbordarse en móvil */
+.grid {
+  min-width: 0;
+}
+
+/* Cards y contenedores */
+.card,
+.card-body,
+.card-header {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Filtros que usan flex wrap */
+.flex {
+  min-width: 0;
+}
+
+/* Tabs w-fit en móvil que puede desbordar */
+@media (max-width: 640px) {
+  .w-fit {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .w-44 {
+    width: 100%;
+  }
+
+  .w-80 {
+    width: 100%;
+  }
+
+  input[type="date"].form-input {
+    width: 100%;
+  }
+}

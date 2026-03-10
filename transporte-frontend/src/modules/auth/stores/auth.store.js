@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/services/api'
 
-const INACTIVIDAD_MS = 60 * 60 * 1000 // 1 hora en ms
+const INACTIVIDAD_MS  = 60 * 60 * 1000          // 1 hora
+const KEY_ULTIMA_ACT  = 'ultima_actividad'       // localStorage key
 
 export const useAuthStore = defineStore('auth', () => {
     const token        = ref(localStorage.getItem('token') || null)
@@ -19,41 +20,61 @@ export const useAuthStore = defineStore('auth', () => {
         return `${usuario.value.nombres} ${usuario.value.apellidos}`
     })
 
+    // ── Helpers de tiempo ────────────────────────────────────
+    function _guardarActividad() {
+        localStorage.setItem(KEY_ULTIMA_ACT, Date.now().toString())
+    }
+
+    function _tiempoInactivo() {
+        const ultima = parseInt(localStorage.getItem(KEY_ULTIMA_ACT) || '0')
+        if (!ultima) return 0
+        return Date.now() - ultima
+    }
+
+    function _sesionExpirada() {
+        return _tiempoInactivo() >= INACTIVIDAD_MS
+    }
+
+    // ── Timer de inactividad ─────────────────────────────────
     function _iniciarTimerInactividad() {
         _limpiarTimer()
-        console.log('Timer inactividad iniciado: 1 hora')
+        // Calcular cuánto tiempo queda antes de expirar
+        const transcurrido = _tiempoInactivo()
+        const restante     = Math.max(INACTIVIDAD_MS - transcurrido, 0)
+
         _timer = setTimeout(() => {
-            console.log('Inactividad detectada, cerrando sesión...')
+            console.log('Sesión expirada por inactividad')
             cerrarSesion()
             window.location.href = '/login'
-        }, INACTIVIDAD_MS)
+        }, restante)
     }
 
     function _limpiarTimer() {
-        if (_timer) {
-            clearTimeout(_timer)
-            _timer = null
-        }
+        if (_timer) { clearTimeout(_timer); _timer = null }
     }
 
-    // Escucha eventos del usuario y reinicia el timer
     function _escucharActividad() {
-        const eventos = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
+        const eventos  = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
         const resetear = () => {
-            if (token.value) {
-                _iniciarTimerInactividad()
-            }
+            if (!token.value) return
+            _guardarActividad()
+            _iniciarTimerInactividad()
         }
-        eventos.forEach(evento => window.addEventListener(evento, resetear))
+        // Remover listeners anteriores para evitar duplicados al recargar
+        eventos.forEach(ev => {
+            window.removeEventListener(ev, resetear)
+            window.addEventListener(ev, resetear, { passive: true })
+        })
     }
 
+    // ── Auth actions ─────────────────────────────────────────
     async function iniciarSesion(correo, password) {
         const { data } = await api.post('/auth/token/', { correo, password })
         token.value        = data.access
         refreshToken.value = data.refresh
         localStorage.setItem('token', data.access)
         localStorage.setItem('refresh_token', data.refresh)
-        console.log('Sesión iniciada')
+        _guardarActividad()
         _iniciarTimerInactividad()
         _escucharActividad()
         await cargarPerfil()
@@ -68,11 +89,10 @@ export const useAuthStore = defineStore('auth', () => {
     function setToken(nuevoToken) {
         token.value = nuevoToken
         localStorage.setItem('token', nuevoToken)
-        console.log('Token renovado')
+        _guardarActividad()
     }
 
     function cerrarSesion() {
-        console.log('Cerrando sesión...')
         _limpiarTimer()
         token.value        = null
         refreshToken.value = null
@@ -80,13 +100,21 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.removeItem('token')
         localStorage.removeItem('refresh_token')
         localStorage.removeItem('usuario')
+        localStorage.removeItem(KEY_ULTIMA_ACT)
     }
 
-    // Si recarga la página con sesión activa
+    // ── Al recargar: verificar si la sesión sigue vigente ────
     if (token.value) {
-        console.log('Sesión activa encontrada, escuchando actividad...')
-        _iniciarTimerInactividad()
-        _escucharActividad()
+        if (_sesionExpirada()) {
+            // Han pasado más de 1 hora desde la última actividad → cerrar
+            console.log('Sesión expirada al recargar')
+            cerrarSesion()
+        } else {
+            // Sesión vigente → continuar con el tiempo restante real
+            console.log(`Sesión activa. Inactividad: ${Math.round(_tiempoInactivo() / 60000)} min`)
+            _iniciarTimerInactividad()
+            _escucharActividad()
+        }
     }
 
     return {
