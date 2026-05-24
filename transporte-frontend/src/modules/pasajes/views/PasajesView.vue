@@ -165,7 +165,7 @@
                                 <p class="font-black text-blue-900">{{ viajeSeleccionado?.ruta_descripcion }}</p>
                                 <p class="text-sm text-blue-600 mt-0.5">{{
                                     formatearFechaHora(viajeSeleccionado?.fecha_salida) }} · {{
-                                    viajeSeleccionado?.vehiculo_placa }}</p>
+                                        viajeSeleccionado?.vehiculo_placa }}</p>
                             </div>
                             <p class="text-2xl font-black text-blue-700">S/. {{ viajeSeleccionado?.precio_base }}</p>
                         </div>
@@ -210,7 +210,7 @@
                                 </div>
                                 <div class="text-center p-3 bg-gray-50 rounded-xl">
                                     <p class="text-2xl font-black text-gray-700">{{ viajeSeleccionado?.capacidad || 18
-                                        }}</p>
+                                    }}</p>
                                     <p class="text-[10px] font-bold text-gray-500 uppercase tracking-wide mt-1">Total
                                     </p>
                                 </div>
@@ -228,7 +228,7 @@
                                 </div>
                                 <p class="text-xs text-blue-600 font-semibold mt-2">
                                     Total estimado: S/. {{ (asientosSeleccionados.length *
-                                    viajeSeleccionado?.precio_base).toFixed(2) }}
+                                        viajeSeleccionado?.precio_base).toFixed(2) }}
                                 </p>
                             </div>
                         </div>
@@ -269,7 +269,7 @@
                                 <div class="flex items-center gap-2">
                                     <span
                                         class="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-black">{{
-                                        idx + 1 }}</span>
+                                            idx + 1 }}</span>
                                     <h3 class="card-title">Asiento {{ form.asiento }}</h3>
                                 </div>
                                 <span v-if="form.pasajeroEncontrado"
@@ -510,7 +510,7 @@
                                 <div class="flex justify-between text-sm">
                                     <span class="text-gray-500">Vehículo</span>
                                     <span class="font-mono font-bold text-gray-900">{{ viajeSeleccionado?.vehiculo_placa
-                                        }}</span>
+                                    }}</span>
                                 </div>
 
                                 <!-- Desglose por pasajero -->
@@ -527,7 +527,7 @@
                                                     <span class="font-black text-amber-600">S/. {{ form.precio }}</span>
                                                 </template>
                                                 <span v-else class="font-bold text-gray-700">S/. {{ form.precio
-                                                    }}</span>
+                                                }}</span>
                                             </div>
                                         </div>
                                         <div v-if="form.paquetes.length" class="flex justify-between text-xs pl-3">
@@ -541,7 +541,7 @@
                                 <div class="flex justify-between text-sm border-t border-gray-100 pt-3">
                                     <span class="text-gray-500">Pago</span>
                                     <span class="font-bold text-gray-700">{{metodosPago.find(m => m.clave ===
-                                        metodoPago)?.etiqueta || '—' }}</span>
+                                        metodoPago)?.etiqueta || '—'}}</span>
                                 </div>
 
                                 <!-- Subtotales -->
@@ -553,14 +553,14 @@
                                     <div v-if="totalPaquetesGeneral > 0" class="flex justify-between text-sm">
                                         <span class="text-orange-500">Paquetes</span>
                                         <span class="font-bold text-orange-600">+ S/. {{ totalPaquetesGeneral.toFixed(2)
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                 </div>
 
                                 <div class="flex justify-between items-center bg-orange-50 rounded-xl p-3">
                                     <span class="font-bold text-gray-700">Total</span>
                                     <span class="text-2xl font-black text-orange-600">S/. {{ totalGeneral.toFixed(2)
-                                        }}</span>
+                                    }}</span>
                                 </div>
 
                                 <div v-if="errorVenta"
@@ -663,7 +663,7 @@
                                 <td class="text-center">
                                     <span class="font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg text-sm">{{
                                         p.asiento
-                                        }}</span>
+                                    }}</span>
                                 </td>
                                 <td class="text-sm text-gray-600">{{ formatearFechaHora(p.fecha_salida) }}</td>
                                 <td>
@@ -681,7 +681,7 @@
                                     <span v-else class="text-xs text-gray-300">—</span>
                                 </td>
                                 <td><span :class="claseEstadoPasaje(p.estado)">{{ etiquetaEstadoPasaje(p.estado)
-                                        }}</span></td>
+                                }}</span></td>
                                 <td class="text-right">
                                     <div class="flex items-center justify-end gap-1">
                                         <button @click="verTicket(p)" title="Ver ticket"
@@ -925,10 +925,14 @@ async function buscarPorDni(idx) {
     form.buscando = true; form.buscado = false; form.pasajeroEncontrado = false; form.errores.dni = ''
     try {
         const { data } = await pasajesService.buscarPasajero(form.dni)
-        const p = data.results?.[0] || data[0]
-        if (p) {
-            form.nombres = p.nombres; form.apellidos = p.apellidos
-            form.telefono = p.telefono || ''; form.pasajero_id = p.id; form.pasajeroEncontrado = true
+        // ✅ El nuevo endpoint devuelve objeto directo, no array
+        const p = Array.isArray(data) ? data[0] : data
+        if (p && (p.nombres || p.id)) {
+            form.nombres = p.nombres
+            form.apellidos = p.apellidos
+            form.telefono = p.telefono || ''
+            form.pasajero_id = p.id || null
+            form.pasajeroEncontrado = true
         } else {
             form.nombres = ''; form.apellidos = ''; form.telefono = ''; form.pasajero_id = null
         }
@@ -1034,7 +1038,7 @@ async function confirmarVenta() {
                 } catch (e) {
                     if (e.response?.data?.dni) {
                         const { data: existente } = await pasajesService.buscarPasajero(form.dni)
-                        const p = existente.results?.[0] || existente[0]
+                        const p = Array.isArray(existente) ? existente[0] : existente
                         if (p) pasajeroId = p.id
                         else throw e
                     } else { throw e }
@@ -1108,30 +1112,30 @@ function enviarWhatsapp(pasaje) {
             return `   ${i + 1}. ${pkg.descripcion} (${pkg.cantidad_bultos} bulto(s)${peso}) — S/. ${pkg.precio_adicional}`
         }).join('\n')
         const totalPkgs = pkgs.reduce((s, p) => s + parseFloat(p.precio_adicional || 0), 0)
-        seccionPaquetes = `\n\n📦 *PAQUETES*\n${lineas}\n   *Total paquetes: S/. ${totalPkgs.toFixed(2)}*`
+        seccionPaquetes = `\n\n *PAQUETES*\n${lineas}\n   *Total paquetes: S/. ${totalPkgs.toFixed(2)}*`
     }
 
     const totalMsg = parseFloat(pasaje.precio || 0) + pkgs.reduce((s, p) => s + parseFloat(p.precio_adicional || 0), 0)
     const totalLinea = pkgs.length
-        ? `💰 Pasaje: S/. ${pasaje.precio}\n💰 Total general: *S/. ${totalMsg.toFixed(2)}*`
-        : `💰 Pasaje: *S/. ${pasaje.precio}*`
+        ? `Pasaje: S/. ${pasaje.precio}\n Total general: *S/. ${totalMsg.toFixed(2)}*`
+        : `Pasaje: *S/. ${pasaje.precio}*`
 
     const msg = [
-        `🎫 *TICKET DE PASAJE - TURISMO WJL*`,
+        `*TICKET DE PASAJE - TURISMO WJL*`,
         `━━━━━━━━━━━━━━━━━━━━━━`,
-        `📋 Código: *${pasaje.codigo?.slice(0, 8).toUpperCase()}*`,
+        `Código: *${pasaje.codigo?.slice(0, 8).toUpperCase()}*`,
         ``,
-        `👤 *PASAJERO*`,
-        `   Nombre: ${pasaje.pasajero_nombre}`,
-        `   DNI: ${pasaje.pasajero_dni}`,
+        `*PASAJERO*`,
+        `Nombre: ${pasaje.pasajero_nombre}`,
+        `DNI: ${pasaje.pasajero_dni}`,
         ``,
-        `🛣️ *VIAJE*`,
-        `   Ruta: ${pasaje.ruta_descripcion}`,
-        `   Salida: ${formatearFechaHora(pasaje.fecha_salida)}`,
-        `   Vehículo: ${pasaje.vehiculo_placa}`,
+        `*VIAJE*`,
+        `Ruta: ${pasaje.ruta_descripcion}`,
+        `Salida: ${formatearFechaHora(pasaje.fecha_salida)}`,
+        `Vehículo: ${pasaje.vehiculo_placa}`,
         ``,
-        `💺 Asiento: *${pasaje.asiento}*`,
-        `💳 Pago: ${mp}`,
+        `Asiento: *${pasaje.asiento}*`,
+        `Pago: ${mp}`,
         totalLinea,
         seccionPaquetes,
         ``,

@@ -1,9 +1,13 @@
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
-
+from decouple import config
 # Rutas base
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# base.py — al final del archivo
+import os
+DECOLECTA_API_KEY = config('DECOLECTA_API_KEY', default='')
 
 # Seguridad
 SECRET_KEY = config('SECRET_KEY')

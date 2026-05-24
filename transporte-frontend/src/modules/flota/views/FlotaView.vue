@@ -112,7 +112,7 @@
                             <td><span :class="claseEstadoVehiculo(v.estado)">{{ etiquetaEstadoVehiculo(v.estado)
                                     }}</span></td>
                             <td><span :class="v.activo ? 'badge badge-green' : 'badge badge-gray'">{{ v.activo ? 'Sí' :
-                                    'No' }}</span></td>
+                                'No' }}</span></td>
                             <td class="text-right">
                                 <div class="flex items-center justify-end gap-1">
                                     <button @click="abrirModalEditar(v)"
@@ -669,9 +669,10 @@ function formatearFecha(fecha) {
 }
 function formatearFechaHora(fecha) {
     if (!fecha) return '—'
-    return new Date(fecha).toLocaleString('es-PE', {
-        day: '2-digit', month: '2-digit',
-        hour: '2-digit', minute: '2-digit'
+    return new Date(fecha).toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
     })
 }
 function licenciaVencida(fecha) {

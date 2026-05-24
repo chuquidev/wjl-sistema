@@ -1,0 +1,108 @@
+.ENV DE PRODUCCION
+=================================================
+
+  GNU nano 7.2                                              .env *
+# Django
+SECRET_KEY=z=#flys9xk2$!dv2766s56&rd#*+(i!bdx_k*$y*4)sk6b2^%k
+DEBUG=False
+ALLOWED_HOSTS=localhost,127.0.0.1,104.248.4.70,turismowjl.com
+
+# PostgreSQL
+DB_NOMBRE=turismowjl_db
+DB_USUARIO=turismowjl
+DB_CONTRASENA=turismowjl123
+DB_HOST=localhost
+DB_PUERTO=5432
+
+SUPERADMIN_EMAIL=admin@turismowjl.com
+SUPERADMIN_PASSWORD=Turismowjl2026
+
+# CORS - Frontend Vue
+CORS_ORIGINS=https://turismowjl.com
+
+
+=========================================
+COMANDOS PARA EL SEEDER
+=========================================
+
+python manage.py seed_superadmin --forcé
+python manage.py seed_superadmin
+
+
+=========================================
+NOMBRE DEL DROPLETS EN DIGITAL OCEAN
+=========================================
+
+Nombre:clientes1dev-server
+Dirección IPv4: 104.248.4.70
+Dirección IP privada: 10.108.0.2
+
+=========================================
+CLAVE SSH
+=========================================
+
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOUZlD4F54i9zXybKh3MzdQ1XK2/J/fG+IqnuxxHNG3X clientes1dev@gmail.com
+
+
+=========================================
+id_ed25519
+=========================================
+
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACDlGZQ+BeeIvc18myodzM3UNVytvyf3xviKp7scRzRt1wAAAKBWccGvVnHB
+rwAAAAtzc2gtZWQyNTUxOQAAACDlGZQ+BeeIvc18myodzM3UNVytvyf3xviKp7scRzRt1w
+AAAEA7FL+h7+CDbu8OVOY2sYMEB1ZFRy6JAryHMex/iyR9ZeUZlD4F54i9zXybKh3MzdQ1
+XK2/J/fG+IqnuxxHNG3XAAAAFmNsaWVudGVzMWRldkBnbWFpbC5jb20BAgMEBQYH
+-----END OPENSSH PRIVATE KEY-----
+
+===========================================
+id_ed25519.pub
+===========================================
+
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOUZlD4F54i9zXybKh3MzdQ1XK2/J/fG+IqnuxxHNG3X 
+
+clientes1dev@gmail.com
+
+==========================================
+ACCEDER AL SERVIDOR EN DIGITAL OCEAN
+==========================================
+
+
+
+
+========================================================
+SUBIR CAMBIOS EN LA LANDING PAGE
+
+
+# En el servidor comandos
+
+ssh root@104.248.4.70
+cd /var/www/landing-wjl
+git pull
+npm run build
+systemctl reload nginx
+
+wilson
+47788956
+
+ssh root@104.248.4.70
+cd /var/www/turismowjl
+git pull
+
+# Si cambios en backend:
+systemctl restart turismowjl
+
+# Si cambios en frontend:
+cd transporte-frontend && npm run build
+
+
+
+
+clientes1dev@gmail.com
+Wilson123456
+
+
+sk_15794.qS2NWBJgRyOYAULS3qCE1gEihuEpRZvV
+
+
