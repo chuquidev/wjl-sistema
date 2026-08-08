@@ -124,6 +124,14 @@
                                                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
                                     </button>
+                                    <!-- Reimprimir ticket físico -->
+                                    <button @click="reimprimirEncomienda(e)" title="Imprimir ticket"
+                                        class="w-8 h-8 rounded-lg hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                        </svg>
+                                    </button>
                                     <!-- Editar -->
                                     <button v-if="['registrada', 'en_transito'].includes(e.estado)"
                                         @click="abrirModalEditar(e)" title="Editar"
@@ -159,7 +167,7 @@
                         </tr>
                     </tbody>
                 </table>
-                
+
                 <!-- Paginación -->
                 <div v-if="totalPaginas > 1"
                     class="flex items-center justify-between px-4 py-3 bg-white rounded-2xl border border-gray-100">
@@ -459,7 +467,7 @@
                 <p class="text-sm font-bold text-gray-900">¿Eliminar esta encomienda?</p>
                 <p class="text-xs text-gray-500">
                     Código: <strong>{{ String(encomiendaSeleccionada?.codigo || '').slice(0, 8).toUpperCase()
-                    }}</strong><br>
+                        }}</strong><br>
                     {{ encomiendaSeleccionada?.remitente_nombre }} → {{ encomiendaSeleccionada?.destinatario_nombre }}
                 </p>
                 <p class="text-xs text-red-500 font-medium">Esta acción no se puede deshacer.</p>
@@ -484,6 +492,7 @@ import { useEncomiendasStore } from '../stores/encomiendas.store'
 import { encomiendasService } from '../services/encomiendas.service'
 import AppModal from '@/components/common/AppModal.vue'
 import TicketEncomienda from '../components/TicketEncomienda.vue'
+import { printerService } from '@/services/printer.service'
 
 const store = useEncomiendasStore()
 
@@ -606,6 +615,15 @@ async function onFechaEnvioChange() {
         viajesDisponibles.value = []
     } finally {
         cargandoViajes.value = false
+    }
+}
+
+
+async function reimprimirEncomienda(enc) {
+    try {
+        await printerService.imprimirEncomienda(enc)
+    } catch (e) {
+        console.error('Error reimprimir:', e.message)
     }
 }
 
@@ -734,12 +752,25 @@ async function guardar() {
 
         if (modoEdicion.value) {
             await encomiendasService.actualizarEstado(idEdicion.value, payload)
+            modalCrear.value = false
         } else {
-            await encomiendasService.crearEncomienda(payload)
+            const { data: nuevaEnc } = await encomiendasService.crearEncomienda(payload)
+            modalCrear.value = false
+            try {
+                await printerService.imprimirEncomienda(nuevaEnc)
+            } catch (e) {
+                console.warn('Impresion no disponible:', e.message)
+            }
+        }
+        cargarEncomiendas()
+
+        // Imprimir automáticamente
+        try {
+            await printerService.imprimirEncomienda(instancia)
+        } catch (e) {
+            console.warn('Impresión no disponible:', e.message)
         }
 
-        modalCrear.value = false
-        cargarEncomiendas()
     } catch (e) {
         const data = e.response?.data
         if (data && typeof data === 'object') {

@@ -17,9 +17,7 @@ urlpatterns = [
     # Autenticación JWT
     path("api/v1/auth/token/", TokenObtainPairView.as_view(), name="token_obtener"),
     path(
-        "api/v1/auth/token/refrescar/",
-        TokenRefreshView.as_view(),
-        name="token_refrescar",
+        "api/v1/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"
     ),
     path(
         "api/v1/auth/token/cerrar/", TokenBlacklistView.as_view(), name="token_cerrar"

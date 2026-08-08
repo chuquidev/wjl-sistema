@@ -16,10 +16,11 @@ export const pasajesService = {
 
   // ── Pasajes ───────────────────────────────────────────────
   obtenerPasajes: (params) => api.get(BASE, { params }),
+  obtenerPasajesPorViaje: (viajeId) =>
+    api.get(`/pasajes/por_viaje/`, { params: { viaje_id: viajeId } }),
   venderPasaje: (data) => api.post(BASE, data),
   anularPasaje: (id, data) => api.post(`${BASE}${id}/anular/`, data),
   obtenerPasaje: (id) => api.get(`${BASE}${id}/`),
-
   // ── Embarcar pasajero (manifiesto) ────────────────────────
   embarcarPasajero: (id) => api.post(`${BASE}${id}/embarcar/`),
 };

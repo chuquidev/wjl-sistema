@@ -45,18 +45,21 @@ class EncomiendaListSerializer(serializers.ModelSerializer):
     def get_codigo_corto(self, obj):
         return str(obj.codigo)[:8].upper()
 
-    def get_viaje_descripcion(self, obj):  # ← adentro de la clase con 4 espacios
+    def get_viaje_descripcion(self, obj):
         if not obj.viaje:
             return None
         try:
             ruta = obj.viaje.ruta
-            fecha = (
-                obj.viaje.fecha_salida.strftime("%d/%m/%Y %I:%M %p")
-                if obj.viaje.fecha_salida
-                else ""
-            )
+            if obj.viaje.fecha_salida:
+                import pytz
+
+                peru_tz = pytz.timezone("America/Lima")
+                fecha_local = obj.viaje.fecha_salida.astimezone(peru_tz)
+                fecha = fecha_local.strftime("%d/%m/%Y %I:%M %p")
+            else:
+                fecha = ""
             placa = obj.viaje.vehiculo.placa if obj.viaje.vehiculo else ""
-            return f"{ruta.origen.nombre} → {ruta.destino.nombre} | {fecha} | {placa}"
+            return f"{ruta.origen.nombre} -> {ruta.destino.nombre} | {fecha} | {placa}"
         except Exception:
             return str(obj.viaje)
 
@@ -147,6 +150,7 @@ class EncomiendaCrearSerializer(serializers.Serializer):
             registrado_por=usuario,
             sucursal_origen=usuario.sucursal,
         )
+
 
 class EncomiendaEntregarSerializer(serializers.Serializer):
     entregado_a = serializers.CharField(max_length=150)

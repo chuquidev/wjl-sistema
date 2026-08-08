@@ -374,7 +374,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { pasajesService } from '../services/pasajes.service'
 import { useVueToPrint } from 'vue-to-print'
 
@@ -388,6 +388,7 @@ const encomiendas = ref([])
 const cargando = ref(false)
 const embarcando = ref(null)
 const mostrarAnulados = ref(false)
+const cargandoPasajes = ref(false)
 const printRef = ref(null)
 
 const { handlePrint } = useVueToPrint({
@@ -523,20 +524,43 @@ async function cargarViajes() {
     }
 }
 
+
+async function cargarPasajes() {
+    if (!viajeId.value) return
+    cargandoPasajes.value = true
+    try {
+        const { data: dataPasajes } = await pasajesService.obtenerPasajesPorViaje(viajeId.value)
+        const activos = (dataPasajes.results ?? dataPasajes)
+            .sort((a, b) => (parseInt(a.asiento) || 0) - (parseInt(b.asiento) || 0))
+
+        if (mostrarAnulados.value) {
+            const { data: dataAnulados } = await pasajesService.obtenerPasajes({
+                viaje: viajeId.value,
+                estado: 'anulado'
+            })
+            const anulados = (dataAnulados.results ?? dataAnulados)
+                .sort((a, b) => (parseInt(a.asiento) || 0) - (parseInt(b.asiento) || 0))
+            pasajes.value = [...activos, ...anulados]
+        } else {
+            pasajes.value = activos
+        }
+    } finally {
+        cargandoPasajes.value = false
+    }
+}
+
+// ✅ Solo recarga pasajes, no el viaje ni encomiendas
+watch(mostrarAnulados, cargarPasajes)
+
 // ── Cargar manifiesto del viaje seleccionado ───────────────────
 async function cargarManifiesto() {
     if (!viajeId.value) return
     cargando.value = true
     try {
-        // Datos del viaje desde la lista ya cargada
         viaje.value = viajes.value.find(v => v.id === parseInt(viajeId.value)) || null
+        await cargarPasajes() // ← usar la función separada
 
-        // Pasajes del viaje — ordenados por numero de asiento
-        const { data: dataPasajes } = await pasajesService.obtenerPasajes({ viaje: viajeId.value })
-        pasajes.value = (dataPasajes.results ?? dataPasajes)
-            .sort((a, b) => (parseInt(a.asiento) || 0) - (parseInt(b.asiento) || 0))
-
-        // Encomiendas del viaje
+        // Encomiendas
         try {
             const api = (await import('@/services/api')).default
             const { data: dataEnc } = await api.get('/encomiendas/', { params: { viaje: viajeId.value } })
@@ -544,13 +568,13 @@ async function cargarManifiesto() {
         } catch {
             encomiendas.value = []
         }
-
     } catch (e) {
         console.error('Error cargando manifiesto:', e)
     } finally {
         cargando.value = false
     }
 }
+
 
 // ── Embarcar pasajero ──────────────────────────────────────────
 async function embarcar(pasaje) {

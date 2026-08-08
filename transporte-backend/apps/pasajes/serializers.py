@@ -45,6 +45,10 @@ class PasajeListSerializer(serializers.ModelSerializer):
     total_paquetes = serializers.ReadOnlyField()
     tiene_paquetes = serializers.ReadOnlyField()
 
+    vendido_por_nombre = serializers.SerializerMethodField()
+
+    sucursal_nombre = serializers.CharField(source="sucursal.nombre", read_only=True)
+
     class Meta:
         model = Pasaje
         fields = (
@@ -68,6 +72,10 @@ class PasajeListSerializer(serializers.ModelSerializer):
             "paquetes",
             "total_paquetes",
             "tiene_paquetes",
+            "vendido_por",
+            "vendido_por_nombre",  # ← agregar vendido_por_nombre
+            "sucursal",
+            "sucursal_nombre",
             "creado_en",
         )
         read_only_fields = ("codigo", "creado_en")
@@ -80,6 +88,16 @@ class PasajeListSerializer(serializers.ModelSerializer):
             return f"{obj.viaje.ruta.origen.nombre} → {obj.viaje.ruta.destino.nombre}"
         except AttributeError:
             return str(obj.viaje.ruta)
+
+    def get_vendido_por_nombre(self, obj):
+        if not obj.vendido_por:
+            return ""
+        nombres = obj.vendido_por.nombres or ""
+        apellidos = obj.vendido_por.apellidos or ""
+        # Primera palabra del nombre + primera inicial del apellido
+        primer_nombre = nombres.split()[0] if nombres else ""
+        primer_apellido = apellidos[0].upper() + "." if apellidos else ""
+        return f"{primer_nombre} {primer_apellido}".strip()
 
 
 class PasajeCrearSerializer(serializers.ModelSerializer):

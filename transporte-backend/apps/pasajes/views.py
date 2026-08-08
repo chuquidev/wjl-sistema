@@ -114,7 +114,31 @@ class PasajeViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         try:
-            return super().create(request, *args, **kwargs)
+            serializer = PasajeCrearSerializer(
+                data=request.data, context=self.get_serializer_context()
+            )
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+
+            # ✅ Recargar desde BD con select_related para tener todos los campos
+            from apps.pasajes.models import Pasaje
+
+            pasaje = Pasaje.objects.select_related(
+                "vendido_por",
+                "sucursal",
+                "viaje",
+                "viaje__ruta",
+                "viaje__ruta__origen",
+                "viaje__ruta__destino",
+                "pasajero",
+            ).get(pk=serializer.instance.pk)
+
+            return Response(
+                PasajeListSerializer(
+                    pasaje, context=self.get_serializer_context()
+                ).data,
+                status=status.HTTP_201_CREATED,
+            )
         except IntegrityError:
             return Response(
                 {"asiento": ["Este asiento ya ha sido reservado por otro usuario."]},
@@ -199,6 +223,7 @@ class PasajeViewSet(viewsets.ModelViewSet):
 
         pasaje.estado = Pasaje.Estado.ANULADO
         pasaje.motivo_anulacion = serializer.validated_data["motivo"]
+        pasaje.activo = False
         pasaje.save()
 
         # ── Anular todos los bultos del pasaje ────────────────────
@@ -261,6 +286,9 @@ class PasajeViewSet(viewsets.ModelViewSet):
                 {"error": "Debe proporcionar viaje_id."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        pasajes = self.queryset.filter(viaje_id=viaje_id)
+        # ✅ Emitidos + Embarcados
+        pasajes = self.queryset.filter(
+            viaje_id=viaje_id, estado__in=["emitido", "embarcado"]
+        )
         serializer = PasajeListSerializer(pasajes, many=True)
         return Response(serializer.data)

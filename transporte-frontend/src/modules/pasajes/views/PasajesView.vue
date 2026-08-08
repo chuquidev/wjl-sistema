@@ -605,6 +605,15 @@
                     <option value="embarcado">Embarcado</option>
                     <option value="anulado">Anulado</option>
                 </select>
+
+                <!-- Filtro por viaje -->
+                <select v-model="filtroViaje" class="form-input w-64" @change="cargarPasajes">
+                    <option value="">Todos los viajes</option>
+                    <option v-for="v in viajesDisponibles" :key="v.id" :value="v.id">
+                        {{ v.ruta_descripcion }} — {{ formatearFecha(v.fecha_salida) }}
+                    </option>
+                </select>
+
                 <button @click="cargarPasajes" class="btn-secondary">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -700,6 +709,14 @@
                                                     d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.121 1.529 5.849L.057 23.547a.75.75 0 00.921.919l5.765-1.457A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.891 0-3.667-.523-5.183-1.432l-.371-.22-3.844.972.998-3.768-.242-.389A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z" />
                                             </svg>
                                         </button>
+                                        <!-- Reimprimir ticket físico -->
+                                        <button @click="reimprimirTicket(p)" title="Imprimir ticket"
+                                            class="w-8 h-8 rounded-lg hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                            </svg>
+                                        </button>
                                         <button v-if="p.estado === 'emitido'" @click="abrirModalAnular(p)"
                                             title="Anular"
                                             class="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-600 transition-colors">
@@ -781,13 +798,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { usePasajesStore } from '../stores/pasajes.store'
 import { pasajesService } from '../services/pasajes.service'
 import AppModal from '@/components/common/AppModal.vue'
 import TicketPasaje from '../components/TicketPasaje.vue'
 import MapaAsientosCombi from '../components/MapaAsientosCombi.vue'
 import ManifiestoPasajeros from '../components/ManifiestoPasajeros.vue'
+import { printerService } from '@/services/printer.service'
+
 
 const store = usePasajesStore()
 
@@ -815,6 +834,11 @@ const ciudades = ref([])
 
 const filtroBusqueda = ref('')
 const filtroFecha = ref('')
+watch(filtroFecha, (fecha) => {
+    filtroViaje.value = '' // limpiar viaje seleccionado
+    cargarViajesDisponibles(fecha)
+})
+
 const filtroEstado = ref('')
 
 const modalTicket = ref(false)
@@ -825,6 +849,9 @@ const ticketsGenerados = ref([])
 const pasajeAnular = ref(null)
 const motivoAnulacion = ref('')
 const intentoAnular = ref(false)
+
+const filtroViaje = ref('')
+const viajesDisponibles = ref([])
 
 const metodosPago = [
     { clave: 'cash', etiqueta: 'Efectivo', emoji: '💵' },
@@ -881,9 +908,12 @@ function agregarPaquete(idx) { formulariosPasajeros.value[idx].paquetes.push(cre
 function quitarPaquete(idx, pidx) { formulariosPasajeros.value[idx].paquetes.splice(pidx, 1) }
 
 // ── Helpers generales ─────────────────────────────────────
-function formatearFechaHora(fecha) {
-    if (!fecha) return '—'
-    return new Date(fecha).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+function formatearFecha(fecha) {
+    if (!fecha) return ''
+    return new Date(fecha).toLocaleDateString('es-PE', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+    })
 }
 
 function ocupacion(viaje) {
@@ -951,6 +981,46 @@ async function buscarViajes() {
     await store.buscarViajes(params)
 }
 
+async function cargarViajesDisponibles(fecha = '') {
+    try {
+        const params = {}
+        if (fecha) {
+            params.fecha_salida__date = fecha
+        } else {
+            // Sin fecha: últimos 30 días y futuros
+            const hace30dias = new Date()
+            hace30dias.setDate(hace30dias.getDate() - 30)
+            params.fecha_salida__date__gte = hace30dias.toISOString().slice(0, 10)
+        }
+        const { data } = await pasajesService.buscarViajes(params)
+        viajesDisponibles.value = data.results ?? data
+    } catch (e) {
+        console.error('Error cargando viajes:', e)
+    }
+}
+
+async function reimprimirTicket(pasaje) {
+    try {
+        await printerService.imprimirPasaje({
+            ...pasaje,
+            metodo_pago: pasaje.metodo_pago,
+            paquetes: pasaje.paquetes || [],
+            precio_pasaje: pasaje.precio,
+            precio_paquetes: pasaje.paquetes?.reduce(
+                (sum, pkg) => sum + parseFloat(pkg.precio_adicional || 0), 0
+            ).toFixed(2) || '0.00',
+            total_general: (
+                parseFloat(pasaje.precio || 0) +
+                (pasaje.paquetes?.reduce(
+                    (sum, pkg) => sum + parseFloat(pkg.precio_adicional || 0), 0
+                ) || 0)
+            ).toFixed(2),
+        })
+    } catch (e) {
+        console.error('Error reimprimir:', e.message)
+    }
+}
+
 function seleccionarViaje(viaje) {
     errorSeleccion.value = ''
     if (['cancelado', 'completado'].includes(viaje.estado)) {
@@ -987,6 +1057,14 @@ function irAPaso3() {
     paso.value = 3
 }
 
+function formatearFechaHora(fecha) {
+    if (!fecha) return '—'
+    return new Date(fecha).toLocaleString('es-PE', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+    })
+}
+
 // ── Validar formularios ───────────────────────────────────
 function validarTodo() {
     let valido = true
@@ -1021,8 +1099,8 @@ async function confirmarVenta() {
     if (!validarTodo()) return
 
     const ahora = new Date()
-    const limite = new Date(new Date(viajeSeleccionado.value.fecha_salida).getTime() + 15 * 60 * 1000)
-    if (ahora > limite) { errorVenta.value = 'El tiempo de venta ha expirado (máx. 15 min después de la salida).'; return }
+    const limite = new Date(new Date(viajeSeleccionado.value.fecha_salida).getTime() + 20 * 60 * 1000)
+    if (ahora > limite) { errorVenta.value = 'El tiempo de venta ha expirado (máx. 20 min después de la salida).'; return }
 
     guardando.value = true; errorVenta.value = ''
     const resultados = []
@@ -1057,7 +1135,7 @@ async function confirmarVenta() {
                 pasajero: pasajeroId,
                 asiento: form.asiento,
                 metodo_pago: metodoPago.value,
-                precio: form.precio,   // ← precio editable del form
+                precio: form.precio,
                 paquetes,
             })
 
@@ -1072,12 +1150,25 @@ async function confirmarVenta() {
                 pasajero_dni: form.dni,
                 pasajero_telefono: form.telefono || '',
                 paquetes,
+                vendido_por_nombre: pasaje.vendido_por_nombre || '',
+                sucursal_nombre: pasaje.sucursal_nombre || '',
             })
         }
 
         ticketsGenerados.value = resultados
         if (resultados.length === 1) { ticketActual.value = resultados[0]; modalTicket.value = true }
         else { modalTickets.value = true }
+
+        // ✅ Imprimir ANTES de resetear
+        for (const ticket of resultados) {
+            try {
+                await printerService.imprimirPasaje(ticket)
+            } catch (e) {
+                console.error('Error impresion completo:', e)
+                console.error('Stack:', e.stack)
+            }
+        }
+
         resetearVenta()
 
     } catch (e) {
@@ -1166,8 +1257,9 @@ async function anularPasaje() {
 
 async function cargarPasajes() {
     const params = {}
-    if (filtroFecha.value) params['viaje__fecha_salida__date'] = filtroFecha.value
-    if (filtroEstado.value) params['estado'] = filtroEstado.value
+    if (filtroBusqueda.value) params.search = filtroBusqueda.value
+    if (filtroEstado.value) params.estado = filtroEstado.value
+    if (filtroViaje.value) params.viaje = filtroViaje.value  // ← agregar
     await store.cargarPasajes(params)
 }
 
@@ -1182,6 +1274,7 @@ async function cargarCiudades() {
 onMounted(() => {
     cargarCiudades()
     cargarPasajes()
+    cargarViajesDisponibles()
     busqueda.fecha = new Date().toISOString().slice(0, 10)
 })
 </script>
