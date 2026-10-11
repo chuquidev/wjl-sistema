@@ -139,11 +139,19 @@ class PasajeViewSet(viewsets.ModelViewSet):
                 ).data,
                 status=status.HTTP_201_CREATED,
             )
-        except IntegrityError:
-            return Response(
-                {"asiento": ["Este asiento ya ha sido reservado por otro usuario."]},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        except IntegrityError as e:
+            # Solo traducimos el error de asiento duplicado; cualquier otro error
+            # de integridad se propaga para no ocultarlo con un mensaje engañoso.
+            if "pasaje_asiento_unico_activo" in str(e):
+                return Response(
+                    {
+                        "asiento": [
+                            "Este asiento ya ha sido reservado por otro usuario."
+                        ]
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
 
     def perform_create(self, serializer):
         from apps.caja.models import SesionCaja, Transaccion

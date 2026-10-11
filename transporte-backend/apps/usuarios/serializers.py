@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import Usuario
-
+from apps.nucleo.validadores import validar_dni
 
 class UsuarioListSerializer(serializers.ModelSerializer):
     sucursal_nombre = serializers.CharField(source='sucursal.nombre', read_only=True)
@@ -30,6 +30,9 @@ class UsuarioCrearSerializer(serializers.ModelSerializer):
             'telefono', 'rol', 'sucursal',
             'password', 'confirmar_password',
         )
+
+    def validate_dni(self, value):
+        return validar_dni(value)
 
     def validate(self, data):
         if data['password'] != data.pop('confirmar_password'):

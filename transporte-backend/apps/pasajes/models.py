@@ -85,7 +85,15 @@ class Pasaje(ModeloBase):
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(precio__gt=0), name="pasaje_precio_positivo"
-            )
+            ),
+            # Un asiento solo puede tener UN pasaje vivo (emitido o embarcado) por
+            # viaje. Los anulados quedan fuera, así el asiento se puede volver a
+            # vender. Es la garantía real contra la doble venta en concurrencia.
+            models.UniqueConstraint(
+                fields=["viaje", "asiento"],
+                condition=models.Q(estado__in=["emitido", "embarcado"]),
+                name="pasaje_asiento_unico_activo",
+            ),
         ]
 
     def __str__(self):

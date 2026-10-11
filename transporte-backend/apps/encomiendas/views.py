@@ -9,6 +9,7 @@ from .models import Encomienda
 from .serializers import (
     EncomiendaListSerializer,
     EncomiendaCrearSerializer,
+    EncomiendaActualizarSerializer,
     EncomiendaEntregarSerializer,
 )
 from rest_framework.pagination import PageNumberPagination
@@ -40,6 +41,58 @@ def _registrar_en_caja(encomienda, usuario):
             f"Encomienda {str(encomienda.codigo)[:8].upper()} — "
             f"{encomienda.remitente_nombre} → {encomienda.destinatario_nombre}"
         ),
+        referencia_encomienda=encomienda,
+    )
+
+
+def _sesion_abierta(usuario, accion):
+    """Caja abierta del usuario; si no hay, rechaza la operación."""
+    from apps.caja.models import SesionCaja
+
+    try:
+        return SesionCaja.objects.get(cajero=usuario, estado=SesionCaja.Estado.ABIERTA)
+    except SesionCaja.DoesNotExist:
+        raise ValidationError(f"Debes tener una sesión de caja abierta para {accion}.")
+
+
+def _codigo(encomienda):
+    return str(encomienda.codigo)[:8].upper()
+
+
+def _ajustar_caja_por_precio(encomienda, precio_anterior, usuario):
+    """Registra en caja la diferencia cuando cambia el precio de una encomienda."""
+    from apps.caja.models import Transaccion
+
+    diferencia = encomienda.precio - precio_anterior
+    if diferencia == 0:
+        return
+    sesion = _sesion_abierta(usuario, "cambiar el precio de una encomienda")
+    Transaccion.objects.create(
+        sesion=sesion,
+        tipo=(
+            Transaccion.Tipo.VENTA_ENCOMIENDA
+            if diferencia > 0
+            else Transaccion.Tipo.ANULACION
+        ),
+        monto=abs(diferencia),
+        descripcion=(
+            f"Ajuste de precio encomienda {_codigo(encomienda)} "
+            f"(S/. {precio_anterior} → S/. {encomienda.precio})"
+        ),
+        referencia_encomienda=encomienda,
+    )
+
+
+def _revertir_en_caja(encomienda, usuario):
+    """Devuelve a caja lo cobrado cuando se elimina una encomienda."""
+    from apps.caja.models import Transaccion
+
+    sesion = _sesion_abierta(usuario, "eliminar una encomienda")
+    Transaccion.objects.create(
+        sesion=sesion,
+        tipo=Transaccion.Tipo.ANULACION,
+        monto=encomienda.precio,
+        descripcion=f"Encomienda eliminada {_codigo(encomienda)}",
         referencia_encomienda=encomienda,
     )
 
@@ -95,24 +148,34 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
         )
 
     # ── Actualizar (patch) ────────────────────────────────────
+    @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
         encomienda = self.get_object()
-        if encomienda.estado == Encomienda.Estado.ENTREGADA:
+        if encomienda.estado in (
+            Encomienda.Estado.ENTREGADA,
+            Encomienda.Estado.DEVUELTA,
+        ):
             return Response(
-                {"error": "No se puede modificar una encomienda ya entregada."},
+                {
+                    "error": f"No se puede modificar una encomienda {encomienda.get_estado_display().lower()}."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        serializer = EncomiendaListSerializer(
-            encomienda,
-            data=request.data,
-            partial=True,
-            context=self.get_serializer_context(),
+        precio_anterior = encomienda.precio
+        serializer = EncomiendaActualizarSerializer(
+            encomienda, data=request.data, partial=True
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+        encomienda = serializer.save()
+        _ajustar_caja_por_precio(encomienda, precio_anterior, request.user)
+        return Response(
+            EncomiendaListSerializer(
+                encomienda, context=self.get_serializer_context()
+            ).data
+        )
 
     # ── Eliminar (soft delete) ────────────────────────────────
+    @transaction.atomic
     def destroy(self, request, *args, **kwargs):
         encomienda = self.get_object()
         if encomienda.estado not in [Encomienda.Estado.REGISTRADA]:
@@ -120,6 +183,7 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
                 {"error": "Solo se pueden eliminar encomiendas en estado registrada."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        _revertir_en_caja(encomienda, request.user)
         encomienda.activo = False
         encomienda.save(update_fields=["activo", "actualizado_en"])
         return Response(status=status.HTTP_204_NO_CONTENT)

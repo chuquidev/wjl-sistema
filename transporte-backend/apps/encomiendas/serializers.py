@@ -1,5 +1,97 @@
 from rest_framework import serializers
 from .models import Encomienda
+from decimal import Decimal
+
+
+class EncomiendaActualizarSerializer(serializers.Serializer):
+    """
+    Edición (PATCH) de una encomienda. Solo se aceptan los campos de abajo:
+    estado, activo, registrado_por, sucursal_origen, etc. se ignoran, porque
+    solo cambian a través de las acciones del sistema (entregar, devolver, eliminar).
+    """
+
+    remitente_nombres = serializers.CharField(max_length=100, required=False)
+    remitente_apellidos = serializers.CharField(max_length=100, required=False)
+    remitente_dni = serializers.CharField(max_length=8, min_length=8, required=False)
+    remitente_telefono = serializers.CharField(
+        max_length=15, required=False, allow_blank=True
+    )
+    destinatario_nombres = serializers.CharField(max_length=100, required=False)
+    destinatario_apellidos = serializers.CharField(max_length=100, required=False)
+    destinatario_dni = serializers.CharField(max_length=8, min_length=8, required=False)
+    destinatario_telefono = serializers.CharField(
+        max_length=15, required=False, allow_blank=True
+    )
+    descripcion = serializers.CharField(max_length=500, required=False)
+    peso_kg = serializers.DecimalField(
+        max_digits=6, decimal_places=2, required=False, allow_null=True
+    )
+    precio = serializers.DecimalField(
+        max_digits=8, decimal_places=2, min_value=Decimal("0.01"), required=False
+    )
+    metodo_pago = serializers.ChoiceField(
+        choices=["cash", "yape", "plin", "card"], required=False
+    )
+    viaje = serializers.IntegerField(required=False, allow_null=True)
+    observacion = serializers.CharField(
+        max_length=500, required=False, allow_blank=True
+    )
+
+    def _validar_dni(self, value):
+        if not value.isdigit():
+            raise serializers.ValidationError("El DNI debe contener solo dígitos.")
+        return value
+
+    def validate_remitente_dni(self, value):
+        return self._validar_dni(value)
+
+    def validate_destinatario_dni(self, value):
+        return self._validar_dni(value)
+
+    def validate_viaje(self, value):
+        if value is None:
+            return None
+        # Si no cambia el viaje, no se vuelve a exigir que siga "programado"
+        if value == self.instance.viaje_id:
+            return self.instance.viaje
+        from apps.flota.models import Viaje
+
+        try:
+            viaje = Viaje.objects.get(pk=value)
+        except Viaje.DoesNotExist:
+            raise serializers.ValidationError("El viaje seleccionado no existe.")
+        if viaje.estado != "programado":
+            raise serializers.ValidationError(
+                "Solo se pueden registrar encomiendas en viajes programados."
+            )
+        return viaje
+
+    def validate(self, data):
+        for parte in ("remitente", "destinatario"):
+            nombres = f"{parte}_nombres"
+            apellidos = f"{parte}_apellidos"
+            if (nombres in data) != (apellidos in data):
+                raise serializers.ValidationError(
+                    {nombres: f"Envía nombres y apellidos del {parte} juntos."}
+                )
+        dni_r = data.get("remitente_dni", self.instance.remitente_dni)
+        dni_d = data.get("destinatario_dni", self.instance.destinatario_dni)
+        if dni_r == dni_d:
+            raise serializers.ValidationError(
+                "El remitente y el destinatario no pueden tener el mismo DNI."
+            )
+        return data
+
+    def update(self, instance, validated_data):
+        for parte in ("remitente", "destinatario"):
+            nombres = validated_data.pop(f"{parte}_nombres", None)
+            apellidos = validated_data.pop(f"{parte}_apellidos", None)
+            if nombres is not None:
+                setattr(instance, f"{parte}_nombre", f"{nombres} {apellidos}".strip())
+        for campo, valor in validated_data.items():
+            setattr(instance, campo, valor)
+        instance.save()
+        return instance
 
 
 class EncomiendaListSerializer(serializers.ModelSerializer):

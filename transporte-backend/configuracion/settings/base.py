@@ -9,6 +9,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 import os
 DECOLECTA_API_KEY = config('DECOLECTA_API_KEY', default='')
 
+
+# Descuento máximo (%) que un CAJERO puede aplicar sobre el precio base de la ruta.
+# Administrador y supervisor no tienen límite. Cámbialo en .env si hace falta.
+DESCUENTO_MAX_CAJERO_PORCENTAJE = config('DESCUENTO_MAX_CAJERO_PORCENTAJE', default=100, cast=int)
+
 # Seguridad
 SECRET_KEY = config('SECRET_KEY')
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost').split(',')

@@ -1,8 +1,13 @@
+from decimal import Decimal
+
 from rest_framework import serializers
+from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
 from .models import Pasajero, Pasaje, PaquetePasaje
 from apps.flota.models import Viaje
+from apps.nucleo.validadores import validar_dni
+from apps.nucleo.permisos import es_administrador, es_supervisor
 
 
 class PasajeroSerializer(serializers.ModelSerializer):
@@ -10,6 +15,9 @@ class PasajeroSerializer(serializers.ModelSerializer):
         model = Pasajero
         fields = "__all__"
         read_only_fields = ("creado_en", "actualizado_en")
+
+    def validate_dni(self, value):
+        return validar_dni(value)
 
 
 class PaquetePasajeSerializer(serializers.ModelSerializer):
@@ -119,10 +127,45 @@ class PasajeCrearSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "codigo")
 
+    def validate_precio(self, value):
+        if value is None or value <= 0:
+            raise serializers.ValidationError("El precio debe ser mayor a 0.")
+        return value
+
+    def _validar_descuento(self, viaje, precio):
+        """
+        El cajero puede dar descuento sobre el precio base de la ruta, pero solo
+        hasta DESCUENTO_MAX_CAJERO_PORCENTAJE (settings, por defecto 20 %).
+        Administrador y supervisor no tienen límite.
+        """
+        request = self.context.get("request")
+        usuario = getattr(request, "user", None)
+        if es_administrador(usuario) or es_supervisor(usuario):
+            return
+
+        porcentaje = getattr(settings, "DESCUENTO_MAX_CAJERO_PORCENTAJE", 20)
+        base = viaje.ruta.precio_base
+        minimo = (base * (Decimal(100) - Decimal(porcentaje)) / Decimal(100)).quantize(
+            Decimal("0.01")
+        )
+        if precio < minimo:
+            raise serializers.ValidationError(
+                {
+                    "precio": (
+                        f"Un cajero puede dar como máximo {porcentaje}% de descuento. "
+                        f"Precio mínimo para esta ruta: S/. {minimo}. "
+                        f"Para un descuento mayor, solicita autorización a un supervisor."
+                    )
+                }
+            )
+
     def validate(self, data):
         viaje = data.get("viaje")
         asiento = data.get("asiento")
         ahora = timezone.now()
+
+        # ── Descuento máximo permitido al cajero ──────────────────
+        self._validar_descuento(viaje, data["precio"])
 
         # ── Estado del viaje ──────────────────────────────────────
         if viaje.estado == Viaje.Estado.CANCELADO:
