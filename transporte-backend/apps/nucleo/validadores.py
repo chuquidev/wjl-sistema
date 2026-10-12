@@ -9,12 +9,8 @@ def validar_dni(value):
 
 
 def validar_telefono(value):
-    """Teléfono opcional: 6 a 15 dígitos, con + inicial y espacios permitidos."""
+    """Teléfono opcional: celular peruano de 9 dígitos."""
     limpio = value.replace(" ", "")
-    if limpio and not (
-        limpio.lstrip("+").isdigit() and 9 <= len(limpio.lstrip("+")) <= 9
-    ):
-        raise serializers.ValidationError(
-            "El teléfono debe tener entre 6 y 15 dígitos (solo números)."
-        )
+    if limpio and not (limpio.isdigit() and len(limpio) == 9):
+        raise serializers.ValidationError("El teléfono debe tener 9 dígitos.")
     return value.strip()
