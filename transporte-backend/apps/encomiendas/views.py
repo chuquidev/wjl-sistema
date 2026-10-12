@@ -12,6 +12,8 @@ from .serializers import (
     EncomiendaActualizarSerializer,
     EncomiendaEntregarSerializer,
 )
+import django_filters
+from django.db.models import Count
 from apps.nucleo.constantes import MARGEN_VENTA_MINUTOS
 from apps.nucleo.permisos import sucursal_permitida
 from rest_framework.pagination import PageNumberPagination
@@ -99,6 +101,15 @@ def _revertir_en_caja(encomienda, usuario, accion="eliminar", concepto="eliminad
     )
 
 
+class EncomiendaFilter(django_filters.FilterSet):
+    # Día de registro en hora local (America/Lima), no en UTC
+    fecha = django_filters.DateFilter(field_name="creado_en", lookup_expr="date")
+
+    class Meta:
+        model = Encomienda
+        fields = ["estado", "viaje", "sucursal_origen", "fecha"]
+
+
 class EncomiendaViewSet(viewsets.ModelViewSet):
     pagination_class = EncomiendaPagination
     queryset = Encomienda.objects.select_related(
@@ -116,7 +127,7 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter,
     ]
-    filterset_fields = ["estado", "viaje", "sucursal_origen"]
+    filterset_class = EncomiendaFilter
     search_fields = [
         "remitente_nombre",
         "remitente_dni",
@@ -199,6 +210,18 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
         encomienda.activo = False
         encomienda.save(update_fields=["activo", "actualizado_en"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ── Resumen por estado (respeta búsqueda, fecha y sucursal) ──
+    @action(detail=False, methods=["get"])
+    def resumen(self, request):
+        params = request.query_params.copy()
+        params.pop("estado", None)  # los contadores muestran todos los estados
+        qs = EncomiendaFilter(params, queryset=self.get_queryset(), request=request).qs
+        qs = filters.SearchFilter().filter_queryset(request, qs, self)
+        conteo = {e: 0 for e in Encomienda.Estado.values}
+        for fila in qs.order_by().values("estado").annotate(n=Count("id")):
+            conteo[fila["estado"]] = fila["n"]
+        return Response(conteo)
 
     # ── Viajes disponibles para el día seleccionado ───────────
     @action(detail=False, methods=["get"], url_path="viajes-disponibles")

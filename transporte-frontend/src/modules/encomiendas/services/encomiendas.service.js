@@ -11,6 +11,7 @@ export const encomiendasService = {
   actualizarEstado: (id, data) => api.patch(`${BASE}${id}/`, data),
   eliminarEncomienda: (id) => api.delete(`${BASE}${id}/`),
   registrarEntrega: (id, data) => api.post(`${BASE}${id}/entregar/`, data),
+  resumenEncomiendas: (params) => api.get(`${BASE}resumen/`, { params }),
 
   // ── Buscar persona por DNI ────────────────────────────────
   buscarPersona: (dni) =>
