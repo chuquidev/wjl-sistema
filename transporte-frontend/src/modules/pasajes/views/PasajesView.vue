@@ -1815,7 +1815,47 @@ function validarTodo() {
   return valido;
 }
 
-// ── Confirmar venta ───────────────────────────────────────
+// ── Confirmar venta
+
+// Busca o crea al pasajero y devuelve su id (crear pasajeros no mueve dinero)
+async function resolverPasajeroId(form) {
+  if (form.pasajero_id) return form.pasajero_id;
+  try {
+    const { data: nuevo } = await pasajesService.crearPasajero({
+      dni: form.dni,
+      nombres: form.nombres,
+      apellidos: form.apellidos,
+      telefono: form.telefono || "",
+    });
+    return nuevo.id;
+  } catch (e) {
+    if (e.response?.data?.dni) {
+      const { data: existente } = await pasajesService.buscarPasajero(form.dni);
+      const p = Array.isArray(existente) ? existente[0] : existente;
+      if (p) return p.id;
+    }
+    throw e;
+  }
+}
+
+// Texto claro cuando el lote falla: indica qué pasajero/asiento causó el error
+function mensajeErrorLote(data) {
+  const err = data.errores || {};
+  const primero = (v) => (Array.isArray(v) ? v[0] : v);
+  const detalle =
+    primero(err.non_field_errors) ||
+    primero(err.asiento) ||
+    primero(err.precio) ||
+    primero(err.detail) ||
+    primero(Object.values(err)[0]) ||
+    "Error al registrar el pasaje.";
+  const quien =
+    data.indice != null
+      ? `Pasajero ${data.indice + 1} (asiento ${data.asiento}): `
+      : "";
+  return `${quien}${detalle} No se vendió ningún pasaje; corrige y vuelve a intentar.`;
+}
+
 async function confirmarVenta() {
   if (!validarTodo()) return;
 
@@ -1831,50 +1871,35 @@ async function confirmarVenta() {
 
   guardando.value = true;
   errorVenta.value = "";
-  const resultados = [];
+  let resultados = [];
   try {
+    // 1) Resolver pasajeros y armar el lote
+    const items = [];
     for (const form of formulariosPasajeros.value) {
-      let pasajeroId = form.pasajero_id;
-      if (!pasajeroId) {
-        try {
-          const { data: nuevo } = await pasajesService.crearPasajero({
-            dni: form.dni,
-            nombres: form.nombres,
-            apellidos: form.apellidos,
-            telefono: form.telefono || "",
-          });
-          pasajeroId = nuevo.id;
-        } catch (e) {
-          if (e.response?.data?.dni) {
-            const { data: existente } = await pasajesService.buscarPasajero(
-              form.dni,
-            );
-            const p = Array.isArray(existente) ? existente[0] : existente;
-            if (p) pasajeroId = p.id;
-            else throw e;
-          } else {
-            throw e;
-          }
-        }
-      }
-
-      const paquetes = form.paquetes.map((pkg) => ({
-        descripcion: pkg.descripcion,
-        cantidad_bultos: pkg.cantidad_bultos,
-        peso_kg: pkg.peso_kg || null,
-        precio_adicional: pkg.precio_adicional,
-      }));
-
-      const { data: pasaje } = await pasajesService.venderPasaje({
-        viaje: viajeSeleccionado.value.id,
-        pasajero: pasajeroId,
+      items.push({
+        pasajero: await resolverPasajeroId(form),
         asiento: form.asiento,
-        metodo_pago: metodoPago.value,
         precio: form.precio,
-        paquetes,
+        paquetes: form.paquetes.map((pkg) => ({
+          descripcion: pkg.descripcion,
+          cantidad_bultos: pkg.cantidad_bultos,
+          peso_kg: pkg.peso_kg || null,
+          precio_adicional: pkg.precio_adicional,
+        })),
       });
+    }
 
-      resultados.push({
+    // 2) Una sola llamada: o se venden todos o no se vende ninguno
+    const { data: pasajes } = await pasajesService.venderLote({
+      viaje: viajeSeleccionado.value.id,
+      metodo_pago: metodoPago.value,
+      pasajes: items,
+    });
+
+    // 3) Armar los tickets (misma orden que los formularios)
+    resultados = pasajes.map((pasaje, i) => {
+      const form = formulariosPasajeros.value[i];
+      return {
         ...pasaje,
         ruta_descripcion: viajeSeleccionado.value.ruta_descripcion,
         vehiculo_placa: viajeSeleccionado.value.vehiculo_placa,
@@ -1884,11 +1909,11 @@ async function confirmarVenta() {
         pasajero_nombre: `${form.nombres} ${form.apellidos}`.trim(),
         pasajero_dni: form.dni,
         pasajero_telefono: form.telefono || "",
-        paquetes,
+        paquetes: items[i].paquetes,
         vendido_por_nombre: pasaje.vendido_por_nombre || "",
         sucursal_nombre: pasaje.sucursal_nombre || "",
-      });
-    }
+      };
+    });
 
     ticketsGenerados.value = resultados;
     if (resultados.length === 1) {
@@ -1911,7 +1936,12 @@ async function confirmarVenta() {
     resetearVenta();
   } catch (e) {
     const data = e.response?.data;
-    if (data?.detail) errorVenta.value = data.detail;
+    if (data?.errores) errorVenta.value = mensajeErrorLote(data);
+    else if (data?.detail) errorVenta.value = data.detail;
+    else if (data?.pasajes)
+      errorVenta.value = Array.isArray(data.pasajes)
+        ? data.pasajes[0]
+        : data.pasajes;
     else if (data?.asiento) errorVenta.value = `Asiento: ${data.asiento[0]}`;
     else if (data?.precio)
       errorVenta.value = Array.isArray(data.precio)

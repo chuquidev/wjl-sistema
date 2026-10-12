@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError, PermissionDenied
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 from .models import SesionCaja, Transaccion
+from apps.nucleo.permisos import es_administrador, es_supervisor
 from .serializers import (
     SesionCajaListSerializer,
     SesionCajaAbrirSerializer,
@@ -30,7 +31,7 @@ class SesionCajaViewSet(viewsets.ModelViewSet):
         """Cada cajero solo ve sus propias sesiones (salvo admin)."""
         user = self.request.user
         qs = super().get_queryset()
-        if user.is_staff or getattr(user, "rol", "") == "administrador":
+        if es_administrador(user) or es_supervisor(user):
             return qs
         return qs.filter(cajero=user)
 
@@ -251,7 +252,7 @@ class TransaccionViewSet(viewsets.ModelViewSet):
         """Cajero solo ve movimientos de sus propias sesiones."""
         user = self.request.user
         qs = super().get_queryset()
-        if user.is_staff or getattr(user, "rol", "") == "administrador":
+        if es_administrador(user) or es_supervisor(user):
             return qs
         return qs.filter(sesion__cajero=user)
 

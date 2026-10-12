@@ -19,6 +19,8 @@ export const pasajesService = {
   obtenerPasajesPorViaje: (viajeId) =>
     api.get(`/pasajes/por_viaje/`, { params: { viaje_id: viajeId } }),
   venderPasaje: (data) => api.post(BASE, data),
+    // Vende varios pasajes en una sola operación: todo o nada
+  venderLote: (data) => api.post(`${BASE}vender-lote/`, data),
   anularPasaje: (id, data) => api.post(`${BASE}${id}/anular/`, data),
   obtenerPasaje: (id) => api.get(`${BASE}${id}/`),
   // ── Embarcar pasajero (manifiesto) ────────────────────────

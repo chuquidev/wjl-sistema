@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction, IntegrityError
 from .models import Pasajero, Pasaje
+from apps.nucleo.permisos import sucursal_permitida
 from .serializers import (
     PasajeroSerializer,
     PasajeListSerializer,
@@ -106,6 +107,12 @@ class PasajeViewSet(viewsets.ModelViewSet):
     ordering_fields = ["creado_en", "precio"]
     http_method_names = ["get", "post", "head", "options"]
 
+    def get_queryset(self):
+        # El cajero solo ve los pasajes de su sucursal; admin/supervisor ven todos.
+        qs = super().get_queryset()
+        sid = sucursal_permitida(self.request.user)
+        return qs if sid is None else qs.filter(sucursal_id=sid)
+
     def get_serializer_class(self):
         if self.action == "create":
             return PasajeCrearSerializer
@@ -152,6 +159,84 @@ class PasajeViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             raise
+
+
+    # ── Venta de varios pasajeros: todo o nada ────────────────
+    MAX_PASAJES_LOTE = 20
+
+    @action(detail=False, methods=["post"], url_path="vender-lote")
+    @transaction.atomic
+    def vender_lote(self, request):
+        """
+        Vende varios pasajes a la vez. Si UNO falla (asiento ocupado, descuento no
+        permitido, sin caja, etc.) no se vende ninguno y caja no se toca.
+
+        Body: {"viaje": 1, "metodo_pago": "cash",
+               "pasajes": [{"pasajero": 5, "asiento": 3, "precio": "50.00",
+                            "paquetes": [...]}, ...]}
+        """
+        items = request.data.get("pasajes")
+        if not isinstance(items, list) or not items:
+            raise ValidationError({"pasajes": "Envía al menos un pasaje."})
+        if len(items) > self.MAX_PASAJES_LOTE:
+            raise ValidationError(
+                {"pasajes": f"Máximo {self.MAX_PASAJES_LOTE} pasajes por venta."}
+            )
+
+        base = {
+            k: request.data[k] for k in ("viaje", "metodo_pago") if k in request.data
+        }
+        creados = []
+        for indice, item in enumerate(items):
+            if not isinstance(item, dict):
+                raise ValidationError({"pasajes": "Formato de pasaje no válido."})
+            try:
+                with transaction.atomic():  # savepoint: aísla el error de este pasaje
+                    serializer = PasajeCrearSerializer(
+                        data={**base, **item},
+                        context=self.get_serializer_context(),
+                    )
+                    serializer.is_valid(raise_exception=True)
+                    self.perform_create(serializer)
+                    creados.append(serializer.instance.pk)
+            except (ValidationError, IntegrityError) as e:
+                transaction.set_rollback(True)  # deshace también los anteriores
+                if isinstance(e, IntegrityError):
+                    if "pasaje_asiento_unico_activo" not in str(e):
+                        raise
+                    detalle = {"asiento": ["Este asiento ya ha sido reservado."]}
+                else:
+                    detalle = e.detail
+                return Response(
+                    {
+                        "indice": indice,
+                        "asiento": item.get("asiento"),
+                        "errores": detalle,
+                        "mensaje": "No se vendió ningún pasaje.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        pasajes = (
+            Pasaje.objects.select_related(
+                "vendido_por",
+                "sucursal",
+                "viaje",
+                "viaje__ruta",
+                "viaje__ruta__origen",
+                "viaje__ruta__destino",
+                "pasajero",
+            )
+            .filter(pk__in=creados)
+            .order_by("pk")
+        )
+        return Response(
+            PasajeListSerializer(
+                pasajes, many=True, context=self.get_serializer_context()
+            ).data,
+            status=status.HTTP_201_CREATED,
+        )
+    
 
     def perform_create(self, serializer):
         from apps.caja.models import SesionCaja, Transaccion

@@ -1,6 +1,17 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
+def sucursal_permitida(user):
+    """
+    Alcance por sucursal del usuario:
+      - administrador / supervisor -> None (ven todas las sucursales)
+      - cajero                      -> id de su sucursal (o -1 si no tiene: no ve nada)
+    """
+    if es_administrador(user) or es_supervisor(user):
+        return None
+    return getattr(user, "sucursal_id", None) or -1
+
+
 def es_administrador(user):
     """True si el usuario autenticado es administrador (rol o is_staff)."""
     return bool(
@@ -57,5 +68,3 @@ class LecturaAutenticadoEscrituraGestion(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return es_administrador(user) or es_supervisor(user)
-
-

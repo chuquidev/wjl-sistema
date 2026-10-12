@@ -22,6 +22,7 @@ from apps.pasajes.models import Pasaje, PaquetePasaje
 from apps.flota.models import Viaje
 from apps.caja.models import SesionCaja, Transaccion
 from rest_framework.exceptions import ValidationError
+from apps.nucleo.permisos import sucursal_permitida
 
 try:
     from apps.encomiendas.models import Encomienda
@@ -35,7 +36,7 @@ except ImportError:
 
 
 def _rango(request):
-    hoy = str(timezone.now().date())
+    hoy = str(timezone.localdate())  # fecha local (Lima), no la UTC
     desde = request.query_params.get("desde") or hoy
     hasta = request.query_params.get("hasta") or hoy
     try:
@@ -52,6 +53,22 @@ def _rango(request):
     return desde, hasta
 
 
+def _alcance_sucursal(request):
+    """
+    Sucursal a la que se limita el reporte.
+    Cajero: siempre la suya. Administrador/supervisor: la del parámetro ?sucursal= (o todas).
+    """
+    forzada = sucursal_permitida(request.user)
+    if forzada is not None:
+        return forzada
+    return request.query_params.get("sucursal") or None
+
+
+def _kw(sid, campo):
+    """Filtro opcional: {campo: sid} si hay sucursal, {} si no."""
+    return {campo: sid} if sid else {}
+
+
 def _float(val):
     return float(val or 0)
 
@@ -66,11 +83,13 @@ class DashboardView(APIView):
 
     def get(self, request):
         desde, hasta = _rango(request)
+        sid = _alcance_sucursal(request)
 
         # ── Querysets base ────────────────────────────────────
         pasajes_qs = Pasaje.objects.filter(
             creado_en__date__gte=desde,
             creado_en__date__lte=hasta,
+            **_kw(sid, "sucursal_id"),
         ).exclude(estado=Pasaje.Estado.ANULADO)
 
         viajes_qs = Viaje.objects.filter(
@@ -81,6 +100,7 @@ class DashboardView(APIView):
         transacciones_qs = Transaccion.objects.filter(
             creado_en__date__gte=desde,
             creado_en__date__lte=hasta,
+            **_kw(sid, "sesion__sucursal_id"),
         )
 
         # ── Paquetes agrupados por día ────────────────────────
@@ -122,7 +142,10 @@ class DashboardView(APIView):
                 activo=True,
                 creado_en__date__gte=desde,
                 creado_en__date__lte=hasta,
-            )
+                **_kw(sid, "sucursal_origen_id"),
+            ).exclude(
+                estado="devuelta"
+            )  # devueltas: ya se reembolsaron en caja
             enc_dia = (
                 encomiendas_qs.annotate(fecha=TruncDate("creado_en"))
                 .values("fecha")
@@ -255,6 +278,7 @@ class DashboardView(APIView):
         total_sesiones = SesionCaja.objects.filter(
             fecha_apertura__date__gte=desde,
             fecha_apertura__date__lte=hasta,
+            **_kw(sid, "sucursal_id"),
         ).count()
 
         # ── Total ventas = pasajes + paquetes + encomiendas ───
@@ -289,7 +313,7 @@ class ReporteVentasView(APIView):
 
     def get(self, request):
         desde, hasta = _rango(request)
-        sucursal_id = request.query_params.get("sucursal")
+        sucursal_id = _alcance_sucursal(request)
 
         filtros_pasaje = Q(creado_en__date__gte=desde, creado_en__date__lte=hasta)
         filtros_encomienda = Q(creado_en__date__gte=desde, creado_en__date__lte=hasta)
@@ -321,8 +345,10 @@ class ReporteVentasView(APIView):
 
         enc_data = {"total": 0, "ingresos": 0.0}
         if ENCOMIENDAS_ENABLED:
-            enc = Encomienda.objects.filter(filtros_encomienda, activo=True).aggregate(
-                total=Count("id"), ingresos=Sum("precio")
+            enc = (
+                Encomienda.objects.filter(filtros_encomienda, activo=True)
+                .exclude(estado="devuelta")
+                .aggregate(total=Count("id"), ingresos=Sum("precio"))
             )
             enc_data = {"total": enc["total"] or 0, "ingresos": _float(enc["ingresos"])}
 
@@ -357,7 +383,7 @@ class ReporteCajaView(APIView):
 
     def get(self, request):
         desde, hasta = _rango(request)
-        sucursal_id = request.query_params.get("sucursal")
+        sucursal_id = _alcance_sucursal(request)
 
         filtros = Q(
             fecha_apertura__date__gte=desde,
@@ -411,12 +437,15 @@ class ExportarExcelView(APIView):
 
     def get(self, request):
         desde, hasta = _rango(request)
+        sid = _alcance_sucursal(request)
 
         # ── Querysets base con reglas de negocio ──────────────
         # Pasajes activos (no anulados) → paquetes con activo=True automático
         pasajes_qs = (
             Pasaje.objects.filter(
-                creado_en__date__gte=desde, creado_en__date__lte=hasta
+                creado_en__date__gte=desde,
+                creado_en__date__lte=hasta,
+                **_kw(sid, "sucursal_id"),
             )
             .exclude(estado=Pasaje.Estado.ANULADO)
             .select_related(
@@ -433,7 +462,10 @@ class ExportarExcelView(APIView):
         if ENCOMIENDAS_ENABLED:
             enc_qs = (
                 Encomienda.objects.filter(
-                    activo=True, creado_en__date__gte=desde, creado_en__date__lte=hasta
+                    activo=True,
+                    creado_en__date__gte=desde,
+                    creado_en__date__lte=hasta,
+                    **_kw(sid, "sucursal_origen_id"),
                 )
                 .exclude(estado="devuelta")  # devueltas no cuentan como ingreso
                 .select_related("registrado_por", "sucursal_origen", "viaje")
@@ -844,11 +876,14 @@ class ExportarPDFView(APIView):
 
     def get(self, request):
         desde, hasta = _rango(request)
+        sid = _alcance_sucursal(request)
 
         # ── Querysets con reglas de negocio ───────────────────
         pasajes_qs = (
             Pasaje.objects.filter(
-                creado_en__date__gte=desde, creado_en__date__lte=hasta
+                creado_en__date__gte=desde,
+                creado_en__date__lte=hasta,
+                **_kw(sid, "sucursal_id"),
             )
             .exclude(estado=Pasaje.Estado.ANULADO)
             .select_related("pasajero", "viaje__ruta__origen", "viaje__ruta__destino")
@@ -861,7 +896,10 @@ class ExportarPDFView(APIView):
         if ENCOMIENDAS_ENABLED:
             enc_list = list(
                 Encomienda.objects.filter(
-                    creado_en__date__gte=desde, creado_en__date__lte=hasta
+                    activo=True,
+                    creado_en__date__gte=desde,
+                    creado_en__date__lte=hasta,
+                    **_kw(sid, "sucursal_origen_id"),
                 )
                 .exclude(estado="devuelta")
                 .order_by("creado_en")

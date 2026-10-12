@@ -2,6 +2,8 @@ from rest_framework import serializers
 from django.utils import timezone
 from .models import Vehiculo, Conductor, Viaje
 from apps.nucleo.validadores import validar_dni
+from datetime import timedelta
+from django.db.models import Q
 
 class VehiculoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -145,4 +147,53 @@ class ViajeDetalleSerializer(serializers.ModelSerializer):
                 "No se puede programar un viaje con fecha de salida en el pasado."
             )
 
+        self._validar_disponibilidad(data)
+
         return data
+
+    # ── Un vehículo o un conductor no puede estar en dos viajes a la vez ──
+    @staticmethod
+    def _fin_estimado(salida, llegada, ruta):
+        """Hora de llegada real o, si no hay, salida + duración de la ruta."""
+        if llegada:
+            return llegada
+        return salida + timedelta(hours=float(ruta.duracion_horas or 0))
+
+    def _validar_disponibilidad(self, data):
+        inst = self.instance
+        salida    = data.get('fecha_salida',  inst.fecha_salida  if inst else None)
+        llegada   = data.get('fecha_llegada', inst.fecha_llegada if inst else None)
+        ruta      = data.get('ruta',          inst.ruta          if inst else None)
+        vehiculo  = data.get('vehiculo',      inst.vehiculo      if inst else None)
+        conductor = data.get('conductor',    inst.conductor     if inst else None)
+        if not (salida and ruta and vehiculo and conductor):
+            return
+
+        fin = self._fin_estimado(salida, llegada, ruta)
+        cercanos = (
+            Viaje.objects
+            .filter(
+                activo=True,
+                estado__in=[Viaje.Estado.PROGRAMADO, Viaje.Estado.EN_CURSO],
+                fecha_salida__lt=fin,
+                fecha_salida__gte=salida - timedelta(days=7),
+            )
+            .filter(Q(vehiculo=vehiculo) | Q(conductor=conductor))
+            .select_related('ruta', 'ruta__origen', 'ruta__destino')
+        )
+        if inst:
+            cercanos = cercanos.exclude(pk=inst.pk)
+
+        errores = {}
+        for otro in cercanos:
+            otro_fin = self._fin_estimado(otro.fecha_salida, otro.fecha_llegada, otro.ruta)
+            if otro_fin <= salida:
+                continue  # termina antes de que salga este viaje
+            hora = timezone.localtime(otro.fecha_salida).strftime('%d/%m/%Y %H:%M')
+            detalle = f'ya está asignado al viaje {otro.ruta} del {hora}.'
+            if otro.vehiculo_id == vehiculo.id:
+                errores['vehiculo'] = f'El vehículo {detalle}'
+            if otro.conductor_id == conductor.id:
+                errores['conductor'] = f'El conductor {detalle}'
+        if errores:
+            raise serializers.ValidationError(errores)

@@ -12,6 +12,7 @@ from .serializers import (
     EncomiendaActualizarSerializer,
     EncomiendaEntregarSerializer,
 )
+from apps.nucleo.permisos import sucursal_permitida
 from rest_framework.pagination import PageNumberPagination
 
 
@@ -83,16 +84,16 @@ def _ajustar_caja_por_precio(encomienda, precio_anterior, usuario):
     )
 
 
-def _revertir_en_caja(encomienda, usuario):
-    """Devuelve a caja lo cobrado cuando se elimina una encomienda."""
+def _revertir_en_caja(encomienda, usuario, accion="eliminar", concepto="eliminada"):
+    """Devuelve a caja lo cobrado cuando se elimina o se devuelve una encomienda."""
     from apps.caja.models import Transaccion
 
-    sesion = _sesion_abierta(usuario, "eliminar una encomienda")
+    sesion = _sesion_abierta(usuario, f"{accion} una encomienda")
     Transaccion.objects.create(
         sesion=sesion,
         tipo=Transaccion.Tipo.ANULACION,
         monto=encomienda.precio,
-        descripcion=f"Encomienda eliminada {_codigo(encomienda)}",
+        descripcion=f"Encomienda {concepto} {_codigo(encomienda)}",
         referencia_encomienda=encomienda,
     )
 
@@ -124,6 +125,16 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
     ]
     ordering_fields = ["creado_en", "precio"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # "entregar" es global: la sucursal de destino debe poder entregar una
+        # encomienda que se registró en otra sucursal (se ubica por código).
+        if self.action == "entregar":
+            return qs
+        # El cajero solo ve las encomiendas que se registraron en su sucursal.
+        sid = sucursal_permitida(self.request.user)
+        return qs if sid is None else qs.filter(sucursal_origen_id=sid)
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -247,8 +258,10 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
             ).data
         )
 
-    # ── Devolver ──────────────────────────────────────────────
+        # ── Devolver (se reembolsa lo cobrado en la caja abierta) ──
+
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def devolver(self, request, pk=None):
         encomienda = self.get_object()
         if encomienda.estado in [
@@ -259,6 +272,9 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
                 {"error": f'No se puede devolver con estado "{encomienda.estado}".'},
                 status=400,
             )
+        _revertir_en_caja(
+            encomienda, request.user, accion="devolver", concepto="devuelta"
+        )
         encomienda.estado = Encomienda.Estado.DEVUELTA
         encomienda.save(update_fields=["estado", "actualizado_en"])
         return Response(
