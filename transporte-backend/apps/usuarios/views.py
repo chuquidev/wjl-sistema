@@ -10,11 +10,22 @@ from .serializers import (
     UsuarioCrearSerializer,
     UsuarioActualizarSerializer,
     CambiarPasswordSerializer,
+    RestablecerPasswordSerializer,
     PerfilSerializer,
 )
 
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken,
+    OutstandingToken,
+)
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import TokenPorCorreoSerializer
+
+
+def _cerrar_sesiones(usuario):
+    """Invalida los refresh tokens del usuario: deberá iniciar sesión de nuevo."""
+    for token in OutstandingToken.objects.filter(user=usuario):
+        BlacklistedToken.objects.get_or_create(token=token)
 
 
 class UsuarioViewSet(viewsets.ModelViewSet):
@@ -60,7 +71,9 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     # ── Cambiar contraseña propia ─────────────────────────
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def cambiar_password(self, request):
-        serializer = CambiarPasswordSerializer(data=request.data)
+        serializer = CambiarPasswordSerializer(
+            data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
 
         usuario = request.user
@@ -74,6 +87,19 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         usuario.save()
         return Response({"mensaje": "Contraseña actualizada correctamente."})
 
+    # ── El administrador restablece la clave de otro usuario ──
+    @action(detail=True, methods=["post"])
+    def restablecer_password(self, request, pk=None):
+        usuario = self.get_object()
+        serializer = RestablecerPasswordSerializer(
+            data=request.data, context={"request": request, "usuario": usuario}
+        )
+        serializer.is_valid(raise_exception=True)
+        usuario.set_password(serializer.validated_data["password_nuevo"])
+        usuario.save()
+        _cerrar_sesiones(usuario)
+        return Response({"mensaje": "Contraseña restablecida correctamente."})
+
     # ── Desactivar usuario ────────────────────────────────
     @action(detail=True, methods=["post"])
     def desactivar(self, request, pk=None):
@@ -85,6 +111,7 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             )
         usuario.activo = False
         usuario.save()
+        _cerrar_sesiones(usuario)
         return Response({"mensaje": "Usuario desactivado correctamente."})
 
 
