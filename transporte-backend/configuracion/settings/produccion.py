@@ -13,7 +13,7 @@ SESSION_COOKIE_SECURE           = True
 CSRF_COOKIE_SECURE              = True
 SECURE_BROWSER_XSS_FILTER       = True
 SECURE_CONTENT_TYPE_NOSNIFF     = True
-
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Emails reales
 EMAIL_BACKEND  = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST     = config('EMAIL_HOST', default='smtp.gmail.com')

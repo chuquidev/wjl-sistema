@@ -19,3 +19,5 @@ requests==2.32.3
 sqlparse==0.5.5
 tzdata==2025.3
 urllib3==2.7.0
+pywin32==312; sys_platform == "win32"
+gunicorn==25.1.0
