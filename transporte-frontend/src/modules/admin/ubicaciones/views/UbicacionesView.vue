@@ -74,7 +74,7 @@
                         </tr>
                         <tr v-else-if="!sucursalesFiltradas.length">
                             <td colspan="7" class="text-center py-12 text-gray-400 italic">
-                                No se encontraron sucursales
+                                No se hay sucursales
                             </td>
                         </tr>
                         <tr v-for="s in sucursalesFiltradas" :key="s.id">
