@@ -1424,6 +1424,8 @@ import MapaAsientosCombi from "../components/MapaAsientosCombi.vue";
 import ManifiestoPasajeros from "../components/ManifiestoPasajeros.vue";
 import { printerService } from "@/services/printer.service";
 
+// Minutos después de la salida en que aún se puede vender (igual que MARGEN_VENTA_MINUTOS del backend)
+const MARGEN_VENTA_MIN = 30;
 const store = usePasajesStore();
 
 const tabActivo = ref("venta");
@@ -1712,10 +1714,10 @@ function seleccionarViaje(viaje) {
   }
   const ahora = new Date();
   const salida = new Date(viaje.fecha_salida);
-  const limite = new Date(salida.getTime() + 15 * 60 * 1000);
+  const limite = new Date(salida.getTime() + MARGEN_VENTA_MIN * 60 * 1000);
   if (ahora > limite) {
     const min = Math.floor((ahora - salida) / 60000);
-    errorSeleccion.value = `Venta cerrada: el viaje salió hace ${min} minutos (límite 15 min).`;
+    errorSeleccion.value = `Venta cerrada: el viaje salió hace ${min} minutos (límite ${MARGEN_VENTA_MIN} min).`;
     return;
   }
   viajeSeleccionado.value = viaje;
@@ -1861,11 +1863,14 @@ async function confirmarVenta() {
 
   const ahora = new Date();
   const limite = new Date(
-    new Date(viajeSeleccionado.value.fecha_salida).getTime() + 20 * 60 * 1000,
+    new Date(viajeSeleccionado.value.fecha_salida).getTime() +
+      MARGEN_VENTA_MIN * 60 * 1000,
   );
   if (ahora > limite) {
     errorVenta.value =
-      "El tiempo de venta ha expirado (máx. 20 min después de la salida).";
+      "El tiempo de venta ha expirado (máx. " +
+      MARGEN_VENTA_MIN +
+      " min después de la salida).";
     return;
   }
 

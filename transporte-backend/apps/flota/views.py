@@ -1,6 +1,8 @@
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from django.utils.dateparse import parse_date, parse_datetime
 from django_filters.rest_framework import DjangoFilterBackend
 from apps.nucleo.permisos import LecturaAutenticadoEscrituraGestion
 from .models import Vehiculo, Conductor, Viaje
@@ -10,6 +12,14 @@ from .serializers import (
     ViajeListSerializer,
     ViajeDetalleSerializer,
 )
+
+
+def _parsear(funcion, texto):
+    """parse_date/parse_datetime lanzan ValueError con fechas imposibles (mes 13...)."""
+    try:
+        return funcion(texto)
+    except ValueError:
+        return None
 
 
 class VehiculoViewSet(viewsets.ModelViewSet):
@@ -91,15 +101,30 @@ class ViajeViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
 
-        # FIX: filtrar por fecha_salida >= valor dado (incluye hora)
+        # fecha_salida >= valor dado (incluye hora). El "+" de la zona horaria
+        # llega como espacio en la URL, por eso se reintenta reemplazándolo.
         fecha_salida__gte = self.request.query_params.get("fecha_salida__gte")
         if fecha_salida__gte:
-            qs = qs.filter(fecha_salida__gte=fecha_salida__gte)
+            valor = _parsear(parse_datetime, fecha_salida__gte) or _parsear(
+                parse_datetime, fecha_salida__gte.replace(" ", "+")
+            )
+            if valor is None:
+                raise ValidationError(
+                    {
+                        "fecha_salida__gte": "Formato inválido. Usa AAAA-MM-DDTHH:MM:SS+00:00."
+                    }
+                )
+            qs = qs.filter(fecha_salida__gte=valor)
 
-        # También soportar fecha exacta por date (para el módulo de pasajes)
+        # Fecha exacta (para el módulo de pasajes)
         fecha_salida__date = self.request.query_params.get("fecha_salida__date")
         if fecha_salida__date:
-            qs = qs.filter(fecha_salida__date=fecha_salida__date)
+            valor = _parsear(parse_date, fecha_salida__date)
+            if valor is None:
+                raise ValidationError(
+                    {"fecha_salida__date": "Formato inválido. Usa AAAA-MM-DD."}
+                )
+            qs = qs.filter(fecha_salida__date=valor)
 
         return qs
 

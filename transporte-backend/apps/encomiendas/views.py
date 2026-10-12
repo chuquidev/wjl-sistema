@@ -12,6 +12,7 @@ from .serializers import (
     EncomiendaActualizarSerializer,
     EncomiendaEntregarSerializer,
 )
+from apps.nucleo.constantes import MARGEN_VENTA_MINUTOS
 from apps.nucleo.permisos import sucursal_permitida
 from rest_framework.pagination import PageNumberPagination
 
@@ -213,7 +214,7 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
             )
 
         ahora = timezone.now()
-        limite = ahora - timezone.timedelta(minutes=20)
+        limite = ahora - timezone.timedelta(minutes=MARGEN_VENTA_MINUTOS)
 
         viajes = (
             Viaje.objects.filter(
@@ -258,8 +259,7 @@ class EncomiendaViewSet(viewsets.ModelViewSet):
             ).data
         )
 
-        # ── Devolver (se reembolsa lo cobrado en la caja abierta) ──
-
+    # ── Devolver (se reembolsa lo cobrado en la caja abierta) ──
     @action(detail=True, methods=["post"])
     @transaction.atomic
     def devolver(self, request, pk=None):

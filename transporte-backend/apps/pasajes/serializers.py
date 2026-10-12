@@ -8,6 +8,7 @@ from .models import Pasajero, Pasaje, PaquetePasaje
 from apps.flota.models import Viaje
 from apps.nucleo.validadores import validar_dni
 from apps.nucleo.permisos import es_administrador, es_supervisor
+from apps.nucleo.constantes import MARGEN_VENTA_MINUTOS
 
 
 class PasajeroSerializer(serializers.ModelSerializer):
@@ -177,13 +178,13 @@ class PasajeCrearSerializer(serializers.ModelSerializer):
                 "No se pueden vender pasajes: el viaje ya fue completado."
             )
 
-        # ── Límite de tiempo (15 min después de salida) ───────────
-        limite = viaje.fecha_salida + timedelta(minutes=15)
+        # ── Límite de tiempo después de la salida ─────────────────
+        limite = viaje.fecha_salida + timedelta(minutes=MARGEN_VENTA_MINUTOS)
         if ahora > limite:
             minutos = int((ahora - viaje.fecha_salida).total_seconds() / 60)
             raise serializers.ValidationError(
                 f"No se pueden vender pasajes: el viaje salió hace {minutos} minutos "
-                f"(límite: 15 minutos después de la salida)."
+                f"(límite: {MARGEN_VENTA_MINUTOS} minutos después de la salida)."
             )
 
         # ── Validar asiento dentro del rango ─────────────────────
